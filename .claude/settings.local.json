@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter create:*)",
+      "Bash(flutter pub:*)",
+      "Bash(flutter run:*)",
+      "Bash(robocopy \"C:\\\\Users\\\\hongk\\\\Desktop\\\\새 폴더\\\\yaksok\" \"C:\\\\Users\\\\hongk\\\\yaksok\" /E /XD \".gradle\" \"build\" \".dart_tool\" /XF \"*.lock\")",
+      "Bash(mkdir -p \"c:/Users/hongk/yaksok\")",
+      "Bash(rsync -av --exclude='.gradle' --exclude='build' --exclude='.dart_tool' \"c:/Users/hongk/Desktop/새 폴더/yaksok/\" \"c:/Users/hongk/yaksok/\")",
+      "Bash(powershell -Command \":*)",
+      "Read(//c/Users/hongk/yaksok/**)",
+      "Read(//c/Users/hongk/yaksok/lib/**)",
+      "Bash(adb kill-server:*)",
+      "Bash(adb start-server:*)",
+      "Bash(where adb:*)",
+      "Read(//c/Users/hongk/AppData/Local/Android/**)",
+      "Bash(/c/Users/hongk/AppData/Local/Android/Sdk/platform-tools/adb.exe kill-server:*)",
+      "Bash(/c/Users/hongk/AppData/Local/Android/Sdk/platform-tools/adb.exe start-server:*)",
+      "Bash(/c/Users/hongk/AppData/Local/Android/Sdk/platform-tools/adb.exe reverse:*)",
+      "Bash(/c/Users/hongk/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat:*)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\hongk\\yaksok\\android"
+    ]
+  }
+}

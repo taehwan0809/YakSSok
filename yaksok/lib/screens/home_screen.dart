@@ -1,0 +1,372 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/app_provider.dart';
+import '../theme/app_theme.dart';
+import '../widgets/common_widgets.dart';
+import 'diseases_screen.dart';
+import 'doctor_notes_screen.dart';
+import 'medicine_search_screen.dart';
+import 'pharmacy_map_screen.dart';
+import 'symptoms_screen.dart';
+import 'weather_screen.dart';
+
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppProvider>();
+    final user = app.currentUser;
+    final weather = app.weatherSnapshot?.weather;
+    final air = app.weatherSnapshot?.airQuality;
+    final schedules = app.schedules.where((item) => item.isActive).take(2).toList();
+    final latestNote = app.doctorNotes.isNotEmpty ? app.doctorNotes.first : null;
+    final trendingDisease = app.diseaseSnapshot?.topDiseases.isNotEmpty == true
+        ? app.diseaseSnapshot!.topDiseases.first
+        : null;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: RefreshIndicator(
+        onRefresh: app.refreshAll,
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _greeting(),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    Text(
+                      '${user?.name.isNotEmpty == true ? user!.name : '사용자'}님',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: AppColors.primaryBlue,
+                  child: Text(
+                    (user?.name.isNotEmpty == true ? user!.name[0] : 'U').toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const WeatherScreen()),
+              ),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.primaryBlue, AppColors.lightBlue],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '오늘의 날씨',
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          weather == null
+                              ? '데이터 없음'
+                              : '${weather.temperature} ${weather.sky}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            air == null
+                                ? '대기질 정보 없음'
+                                : '미세먼지 ${air.pm10.grade}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Icon(
+                      Icons.wb_sunny_rounded,
+                      color: Colors.white,
+                      size: 64,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const SectionHeader(title: '빠른 메뉴'),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                QuickActionButton(
+                  icon: Icons.sick_outlined,
+                  label: '증상 분석',
+                  color: AppColors.primaryBlue,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SymptomsScreen()),
+                  ),
+                ),
+                QuickActionButton(
+                  icon: Icons.coronavirus_outlined,
+                  label: '유행 질병',
+                  color: AppColors.lightBlue,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const DiseasesScreen()),
+                  ),
+                ),
+                QuickActionButton(
+                  icon: Icons.medication_outlined,
+                  label: '약 추천',
+                  color: AppColors.accentGreen,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MedicineSearchScreen(),
+                    ),
+                  ),
+                ),
+                QuickActionButton(
+                  icon: Icons.local_pharmacy_outlined,
+                  label: '약국 찾기',
+                  color: AppColors.primaryBlue,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const PharmacyMapScreen(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 28),
+            const SectionHeader(title: '복용 일정'),
+            const SizedBox(height: 12),
+            if (schedules.isEmpty)
+              const YakSokCard(
+                child: Text(
+                  '활성화된 복용 일정이 없습니다.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+              )
+            else
+              ...schedules.map(
+                (schedule) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: YakSokCard(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppColors.blueSurface,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.medication,
+                            color: AppColors.primaryBlue,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                schedule.medicineName,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                schedule.displaySchedule,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        StatusBadge(
+                          text: schedule.isActive ? '활성' : '중지',
+                          color: schedule.isActive
+                              ? AppColors.accentGreen
+                              : Colors.orange,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 28),
+            SectionHeader(
+              title: '최근 진료 기록',
+              actionText: '전체 보기',
+              onAction: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DoctorNotesScreen()),
+              ),
+            ),
+            const SizedBox(height: 12),
+            YakSokCard(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DoctorNotesScreen()),
+              ),
+              child: latestNote == null
+                  ? const Text(
+                      '아직 진료 기록이 없습니다.',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          latestNote.summaryData.diagnosis.isNotEmpty
+                              ? latestNote.summaryData.diagnosis
+                              : latestNote.summary,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          latestNote.summary,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+            const SizedBox(height: 28),
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DiseasesScreen()),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3E0),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.orange,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '유행 질병 알림',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: Color(0xFFE65100),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            trendingDisease == null
+                                ? (app.isLoggedIn ? '데이터를 불러오지 못했습니다.' : '프로필 탭에서 로그인 후 이용 가능합니다.')
+                                : '${trendingDisease.rank}위 ${trendingDisease.name} · ${trendingDisease.count}건',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.orange,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
+                      color: Colors.orange,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return '좋은 아침입니다';
+    }
+    if (hour < 18) {
+      return '좋은 오후입니다';
+    }
+    return '좋은 저녁입니다';
+  }
+}
