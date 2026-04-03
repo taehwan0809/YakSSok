@@ -95,7 +95,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final launched = await launchUrl(
         Uri.parse(authUrl),
-        mode: LaunchMode.externalApplication,
+        mode: LaunchMode.inAppBrowserView,
       );
 
       if (!launched && mounted) {
