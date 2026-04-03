@@ -77,7 +77,7 @@ class AppTheme {
           color: AppColors.primaryBlue,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.surfaceWhite,
         elevation: 2,
         shadowColor: AppColors.cardShadow,

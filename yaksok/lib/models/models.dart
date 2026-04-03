@@ -4,6 +4,7 @@ class UserModel {
   final String nickname;
   final String email;
   final String guardianEmail;
+  final String guardianPhone;
   final int age;
   final String gender;
   final String address;
@@ -17,6 +18,7 @@ class UserModel {
     required this.nickname,
     required this.email,
     required this.guardianEmail,
+    required this.guardianPhone,
     required this.age,
     required this.gender,
     required this.address,
@@ -32,6 +34,7 @@ class UserModel {
       nickname: _asString(json['nickname']),
       email: _asString(json['email']),
       guardianEmail: _asString(json['guardian_email']),
+      guardianPhone: _asString(json['guardian_phone']),
       age: _asInt(json['age']),
       gender: _asString(json['gender']),
       address: _asString(json['address']),

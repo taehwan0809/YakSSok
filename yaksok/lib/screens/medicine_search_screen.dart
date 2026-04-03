@@ -5,6 +5,7 @@ import '../models/models.dart';
 import '../providers/app_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import 'login_screen.dart';
 
 class MedicineSearchScreen extends StatefulWidget {
   const MedicineSearchScreen({super.key});
@@ -69,10 +70,24 @@ class _MedicineSearchScreenState extends State<MedicineSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final history = context.watch<AppProvider>().medicineHistory;
+    final app = context.watch<AppProvider>();
+    final history = app.medicineHistory;
+
+    if (!app.isLoggedIn) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('약 추천/사용법')),
+        body: LoginRequiredWidget(
+          title: '약 추천은 로그인 후 사용할 수 있어요',
+          subtitle: '추천 기록을 저장하고, 이전 검색 결과도 다시 볼 수 있습니다.',
+          onLogin: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('약 추천')),
+      appBar: AppBar(title: const Text('약 추천/사용법')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -220,11 +235,11 @@ class _MedicineSearchScreenState extends State<MedicineSearchScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        _InfoBlock(title: '효능', content: item.efficacy),
+                        _InfoBlock(title: '어떤 도움을 주나요?', content: item.efficacy),
                         const SizedBox(height: 10),
-                        _InfoBlock(title: '복용 방법', content: item.howToTake),
+                        _InfoBlock(title: '사용/복용 방법', content: item.howToTake),
                         const SizedBox(height: 10),
-                        _InfoBlock(title: '주의사항', content: item.caution),
+                        _InfoBlock(title: '꼭 주의하세요', content: item.caution),
                       ],
                     ),
                   ),

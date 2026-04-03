@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import 'login_screen.dart';
 
 class WeatherScreen extends StatefulWidget {
   const WeatherScreen({super.key});
@@ -23,10 +24,24 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final snapshot = context.watch<AppProvider>().weatherSnapshot;
+    final app = context.watch<AppProvider>();
+    final snapshot = app.weatherSnapshot;
     final weather = snapshot?.weather;
     final air = snapshot?.airQuality;
     final advice = snapshot?.healthAdvice ?? const <String>[];
+
+    if (!app.isLoggedIn) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('날씨 및 건강 정보')),
+        body: LoginRequiredWidget(
+          title: '날씨와 건강 정보는 로그인 후 볼 수 있어요',
+          subtitle: '지역 기반 날씨, 대기질, 건강 조언을 함께 제공합니다.',
+          onLogin: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(

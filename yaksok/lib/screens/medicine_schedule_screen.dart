@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/models.dart';
 import '../providers/app_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import 'login_screen.dart';
 
 class MedicineScheduleScreen extends StatelessWidget {
   const MedicineScheduleScreen({super.key});
@@ -13,6 +15,19 @@ class MedicineScheduleScreen extends StatelessWidget {
     final app = context.watch<AppProvider>();
     final schedules = app.schedules;
     final activeCount = schedules.where((item) => item.isActive).length;
+
+    if (!app.isLoggedIn) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('복용 일정')),
+        body: LoginRequiredWidget(
+          title: '복용 일정은 로그인 후 관리할 수 있어요',
+          subtitle: '진료 기록에서 자동 생성된 약 일정과 직접 등록한 일정을 함께 볼 수 있습니다.',
+          onLogin: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -74,149 +89,7 @@ class MedicineScheduleScreen extends StatelessWidget {
                 ...schedules.map(
                   (schedule) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: YakSokCard(
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: schedule.isActive
-                                      ? AppColors.greenSurface
-                                      : AppColors.blueSurface,
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Icon(
-                                  schedule.isActive
-                                      ? Icons.check_circle
-                                      : Icons.pause_circle,
-                                  color: schedule.isActive
-                                      ? AppColors.accentGreen
-                                      : AppColors.primaryBlue,
-                                  size: 26,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      schedule.medicineName,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      schedule.displaySchedule,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Switch(
-                                value: schedule.isActive,
-                                activeColor: AppColors.accentGreen,
-                                onChanged: (_) => context
-                                    .read<AppProvider>()
-                                    .toggleScheduleActive(schedule),
-                              ),
-                            ],
-                          ),
-                          if (schedule.schedule.isNotEmpty || schedule.caution.isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            const Divider(height: 1),
-                            const SizedBox(height: 10),
-                            if (schedule.schedule.isNotEmpty)
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(
-                                    Icons.access_time,
-                                    size: 14,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Wrap(
-                                      spacing: 6,
-                                      runSpacing: 6,
-                                      children: schedule.schedule
-                                          .map(
-                                            (time) => Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 3,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.blueSurface,
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                time,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: AppColors.primaryBlue,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ),
-                                          )
-                                          .toList(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            if (schedule.caution.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(
-                                    Icons.warning_amber_rounded,
-                                    size: 14,
-                                    color: Colors.orange,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      schedule.caution,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ],
-                          const SizedBox(height: 6),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              TextButton(
-                                onPressed: () => context
-                                    .read<AppProvider>()
-                                    .removeSchedule(schedule.id),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: Colors.red,
-                                ),
-                                child: const Text('삭제'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+                    child: _ScheduleCard(schedule: schedule),
                   ),
                 ),
               ],
@@ -324,5 +197,284 @@ class MedicineScheduleScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _doseKeyForLabel(String label) {
+    switch (label) {
+      case '아침':
+        return 'morning';
+      case '점심':
+        return 'afternoon';
+      case '저녁':
+        return 'evening';
+      case '취침 전':
+        return 'bedtime';
+      default:
+        return label;
+    }
+  }
+}
+
+class _ScheduleCard extends StatelessWidget {
+  final MedicineSchedule schedule;
+
+  const _ScheduleCard({required this.schedule});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppProvider>();
+    final doseStatus = app.doseStatusFor(schedule.id);
+    final doseKeys = schedule.schedule.map(_doseKeyForLabel).toList();
+    final allDone = doseKeys.isNotEmpty &&
+        doseKeys.every((doseKey) => doseStatus[doseKey] == true);
+
+    return YakSokCard(
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: schedule.isActive
+                      ? AppColors.greenSurface
+                      : AppColors.blueSurface,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  schedule.isActive
+                      ? Icons.check_circle
+                      : Icons.pause_circle,
+                  color: schedule.isActive
+                      ? AppColors.accentGreen
+                      : AppColors.primaryBlue,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      schedule.medicineName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      schedule.displaySchedule,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text(
+                    '일정 사용',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  Switch(
+                    value: schedule.isActive,
+                    activeColor: AppColors.accentGreen,
+                    onChanged: (_) => context
+                        .read<AppProvider>()
+                        .toggleScheduleActive(schedule),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (schedule.schedule.isNotEmpty || schedule.caution.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            const Divider(height: 1),
+            const SizedBox(height: 10),
+            if (schedule.schedule.isNotEmpty) ...[
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                value: allDone,
+                title: const Text(
+                  '오늘 복용 완료',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                subtitle: Text(
+                  allDone
+                      ? '오늘 일정의 모든 복용 시간을 체크했습니다.'
+                      : '아래 시간대를 모두 완료하면 자동으로 켜집니다.',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                onChanged: (value) async {
+                  for (final doseKey in doseKeys) {
+                    final currentValue = doseStatus[doseKey] == true;
+                    if (value && !currentValue) {
+                      await context.read<AppProvider>().toggleDoseStatus(
+                            scheduleId: schedule.id,
+                            doseKey: doseKey,
+                          );
+                    } else if (!value && currentValue) {
+                      await context.read<AppProvider>().toggleDoseStatus(
+                            scheduleId: schedule.id,
+                            doseKey: doseKey,
+                          );
+                    }
+                  }
+                },
+              ),
+              const SizedBox(height: 6),
+              ...schedule.schedule.map((time) {
+                final doseKey = _doseKeyForLabel(time);
+                final isDone = doseStatus[doseKey] == true;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: isDone
+                        ? AppColors.accentGreen.withValues(alpha: 0.08)
+                        : AppColors.blueSurface,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 12),
+                            Text(
+                              time,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              isDone ? '복용 완료' : '아직 복용 전',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDone
+                                    ? AppColors.accentGreen
+                                    : AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                        ),
+                      ),
+                      Switch.adaptive(
+                        value: isDone,
+                        activeColor: AppColors.accentGreen,
+                        onChanged: (_) => context.read<AppProvider>().toggleDoseStatus(
+                              scheduleId: schedule.id,
+                              doseKey: doseKey,
+                            ),
+                      ),
+                      if (app.currentUser?.guardianPhone.isNotEmpty == true)
+                        IconButton(
+                          tooltip: '보호자에게 공유',
+                          onPressed: app.isBusy
+                              ? null
+                              : () async {
+                                  try {
+                                    final message = await context
+                                        .read<AppProvider>()
+                                        .notifyGuardianForDose(
+                                          scheduleId: schedule.id,
+                                          doseLabel: time,
+                                          completed: isDone,
+                                        );
+                                    if (!context.mounted) {
+                                      return;
+                                    }
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(message)),
+                                    );
+                                  } catch (error) {
+                                    if (!context.mounted) {
+                                      return;
+                                    }
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(error.toString())),
+                                    );
+                                  }
+                                },
+                          icon: const Icon(Icons.sms_outlined),
+                        ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+            if (schedule.caution.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    size: 14,
+                    color: Colors.orange,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      schedule.caution,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () =>
+                    context.read<AppProvider>().removeSchedule(schedule.id),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red,
+                ),
+                child: const Text('삭제'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _doseKeyForLabel(String label) {
+    switch (label) {
+      case '아침':
+        return 'morning';
+      case '점심':
+        return 'afternoon';
+      case '저녁':
+        return 'evening';
+      case '취침 전':
+        return 'bedtime';
+      default:
+        return label;
+    }
   }
 }

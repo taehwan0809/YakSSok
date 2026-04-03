@@ -26,7 +26,7 @@ class _MainScreenState extends State<MainScreen> {
     _NavItem(
       icon: Icons.medication_outlined,
       activeIcon: Icons.medication_rounded,
-      label: '복약 일정',
+      label: '복용 일정',
     ),
     _NavItem(
       icon: Icons.health_and_safety_outlined,

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:app_links/app_links.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -22,6 +23,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _nameController = TextEditingController();
   final _ageController = TextEditingController();
   final _addressController = TextEditingController();
+  final _guardianEmailController = TextEditingController();
+  final _guardianPhoneController = TextEditingController();
 
   late final AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSub;
@@ -46,6 +49,8 @@ class _LoginScreenState extends State<LoginScreen> {
     _nameController.dispose();
     _ageController.dispose();
     _addressController.dispose();
+    _guardianEmailController.dispose();
+    _guardianPhoneController.dispose();
     _linkSub?.cancel();
     super.dispose();
   }
@@ -135,6 +140,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (app.needsRegistration) {
         _showMessage('추가 정보를 입력해 회원가입을 마무리하세요.');
+        return;
+      }
+
+      if (app.isLoggedIn) {
+        _showMessage('로그인되었습니다.');
+        Navigator.of(context).pop();
       }
     } on ApiException catch (error) {
       if (mounted) {
@@ -161,10 +172,21 @@ class _LoginScreenState extends State<LoginScreen> {
         age: age,
         gender: _selectedGender,
         address: _addressController.text.trim(),
+        guardianEmail: _guardianEmailController.text.trim(),
+        guardianPhone: _guardianPhoneController.text.trim(),
       );
+      if (!mounted) {
+        return;
+      }
+      _showMessage('회원가입이 완료되었습니다.');
+      Navigator.of(context).pop();
     } on ApiException catch (error) {
       if (mounted) {
         _showMessage(error.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        _showMessage('회원가입 중 오류가 발생했습니다.');
       }
     }
   }
@@ -245,41 +267,43 @@ class _LoginScreenState extends State<LoginScreen> {
                   color: AppColors.textSecondary,
                 ),
               ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _showManualFallback = !_showManualFallback;
-                  });
-                },
-                child: Text(
-                  _showManualFallback ? '수동 복구 닫기' : '토큰 자동 복귀가 안 될 때',
-                ),
-              ),
-              if (_showManualFallback) ...[
+              if (kDebugMode) ...[
                 const SizedBox(height: 8),
-                TextField(
-                  controller: _baseUrlController,
-                  keyboardType: TextInputType.url,
-                  decoration: const InputDecoration(
-                    labelText: '백엔드 주소',
-                    prefixIcon: Icon(Icons.link),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _showManualFallback = !_showManualFallback;
+                    });
+                  },
+                  child: Text(
+                    _showManualFallback ? '개발용 수동 복구 닫기' : '개발용 수동 토큰 연결',
                   ),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _tokenController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: '토큰 붙여넣기',
-                    prefixIcon: Icon(Icons.vpn_key_outlined),
+                if (_showManualFallback) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _baseUrlController,
+                    keyboardType: TextInputType.url,
+                    decoration: const InputDecoration(
+                      labelText: '백엔드 주소',
+                      prefixIcon: Icon(Icons.link),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  onPressed: app.isBusy ? null : _connect,
-                  child: const Text('수동 연결'),
-                ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _tokenController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: '토큰 붙여넣기',
+                      prefixIcon: Icon(Icons.vpn_key_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: app.isBusy ? null : _connect,
+                    child: const Text('수동 연결'),
+                  ),
+                ],
               ],
               if (app.needsRegistration) ...[
                 const SizedBox(height: 28),
@@ -293,6 +317,50 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 8),
                 const Text(
                   '첫 로그인 상태입니다. 정보를 입력하면 회원가입이 완료됩니다.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.greenSurface,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.family_restroom_outlined,
+                        color: AppColors.accentGreen,
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '보호자 연락처나 이메일을 함께 등록하면 진료 기록, 증상 분석 결과, 복용 완료 상태를 보호자와 공유할 수 있습니다. 원하지 않으면 나중에 프로필에서 등록해도 됩니다.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textPrimary,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '보호자 공유 설정',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  '지금 등록하면 보호자가 사용자의 건강 상태를 함께 확인할 수 있습니다.',
                   style: TextStyle(
                     fontSize: 13,
                     color: AppColors.textSecondary,
@@ -342,6 +410,24 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: const InputDecoration(
                     labelText: '주소',
                     prefixIcon: Icon(Icons.home_outlined),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _guardianPhoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: '보호자 연락처(선택)',
+                    prefixIcon: Icon(Icons.phone_outlined),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _guardianEmailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: '보호자 이메일(선택)',
+                    prefixIcon: Icon(Icons.mail_outline),
                   ),
                 ),
                 const SizedBox(height: 16),

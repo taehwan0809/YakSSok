@@ -63,6 +63,8 @@ class BackendApi {
     required int age,
     required String gender,
     required String address,
+    String guardianEmail = '',
+    String guardianPhone = '',
   }) async {
     final body = await _request(
       'POST',
@@ -72,6 +74,8 @@ class BackendApi {
         'age': age,
         'gender': gender,
         'address': address,
+        if (guardianEmail.trim().isNotEmpty) 'guardian_email': guardianEmail.trim(),
+        if (guardianPhone.trim().isNotEmpty) 'guardian_phone': guardianPhone.trim(),
       },
     );
     final nextToken = body['token']?.toString();
@@ -81,11 +85,69 @@ class BackendApi {
     return UserModel.fromJson(_asMap(body['user']));
   }
 
+  Future<UserModel> updateProfile({
+    required String name,
+    required int age,
+    required String gender,
+    required String address,
+    String guardianEmail = '',
+    String guardianPhone = '',
+  }) async {
+    final body = await _request(
+      'PUT',
+      '/auth/profile',
+      payload: {
+        'name': name,
+        'age': age,
+        'gender': gender,
+        'address': address,
+        'guardian_email': guardianEmail.trim(),
+        'guardian_phone': guardianPhone.trim(),
+      },
+    );
+    return UserModel.fromJson(_asMap(body['user']));
+  }
+
   Future<void> logout() async {
     if (!isConfigured) {
       return;
     }
     await _request('POST', '/auth/logout');
+  }
+
+  Future<String> updateGuardianPhone(String guardianPhone) async {
+    final body = await _request(
+      'PUT',
+      '/auth/guardian',
+      payload: {'guardian_phone': guardianPhone},
+    );
+    return body['message']?.toString() ?? '보호자 연락처가 저장되었습니다.';
+  }
+
+  Future<String> notifyGuardian(int doctorNoteId) async {
+    final body = await _request('POST', '/doctor-note/$doctorNoteId/notify');
+    return body['message']?.toString() ?? '보호자에게 알림을 발송했습니다.';
+  }
+
+  Future<String> notifyGuardianForSymptom(int symptomId) async {
+    final body = await _request('POST', '/symptom/$symptomId/notify');
+    return body['message']?.toString() ?? '보호자에게 증상 분석 알림을 발송했습니다.';
+  }
+
+  Future<String> notifyGuardianForDose({
+    required int scheduleId,
+    required String doseLabel,
+    required bool completed,
+  }) async {
+    final body = await _request(
+      'POST',
+      '/schedule/$scheduleId/notify-dose',
+      payload: {
+        'dose_label': doseLabel,
+        'completed': completed,
+      },
+    );
+    return body['message']?.toString() ?? '보호자에게 복용 상태 알림을 발송했습니다.';
   }
 
   Future<List<MedicineSchedule>> fetchSchedules({bool activeOnly = false}) async {

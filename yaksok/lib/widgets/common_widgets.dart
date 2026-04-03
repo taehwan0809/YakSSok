@@ -179,3 +179,58 @@ class EmptyStateWidget extends StatelessWidget {
     );
   }
 }
+
+class LoginRequiredWidget extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final VoidCallback onLogin;
+
+  const LoginRequiredWidget({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.onLogin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.lock_outline_rounded,
+              size: 72,
+              color: AppColors.primaryBlue,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: onLogin,
+                icon: const Icon(Icons.login),
+                label: const Text('로그인 / 회원가입'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

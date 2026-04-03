@@ -1,9 +1,13 @@
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../providers/app_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/common_widgets.dart';
+import 'login_screen.dart';
 
 class PharmacyMapScreen extends StatefulWidget {
   const PharmacyMapScreen({super.key});
@@ -14,6 +18,7 @@ class PharmacyMapScreen extends StatefulWidget {
 
 class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
   int _selectedIndex = -1;
+  final MapController _mapController = MapController();
 
   @override
   void initState() {
@@ -25,12 +30,53 @@ class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pharmacies = context.watch<AppProvider>().pharmacies;
+    final app = context.watch<AppProvider>();
+    final pharmacies = app.pharmacies;
+    final mapCenter = pharmacies.isNotEmpty
+        ? LatLng(pharmacies.first.latitude, pharmacies.first.longitude)
+        : LatLng(AppProvider.defaultLat, AppProvider.defaultLng);
+    final locationLabel = app.currentLocationLabel;
+
+    if (!app.isLoggedIn) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('주변 약국 찾기')),
+        body: LoginRequiredWidget(
+          title: '주변 약국 찾기는 로그인 후 사용할 수 있어요',
+          subtitle: '위치 기반으로 가까운 약국 목록과 연결 링크를 제공합니다.',
+          onLogin: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('주변 약국 찾기'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.my_location),
+            onPressed: () async {
+              try {
+                await context.read<AppProvider>().updateCurrentLocation();
+                if (!mounted) {
+                  return;
+                }
+                final app = context.read<AppProvider>();
+                _mapController.move(
+                  LatLng(app.currentLat, app.currentLng),
+                  15,
+                );
+              } catch (error) {
+                if (!mounted) {
+                  return;
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(error.toString())),
+                );
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => context.read<AppProvider>().loadPharmacies(),
@@ -39,39 +85,122 @@ class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
       ),
       body: Column(
         children: [
-          Container(
-            height: 180,
-            width: double.infinity,
-            color: const Color(0xFFE8F4F8),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  '카카오 지도 연동 전 단계',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceWhite,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.my_location_outlined,
                     color: AppColors.primaryBlue,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  pharmacies.isEmpty
-                      ? '약국 데이터를 불러오는 중입니다.'
-                      : '백엔드에서 받은 ${pharmacies.length}개 약국 목록을 표시합니다. '
-                          '상세 버튼으로 카카오 장소 페이지를 열 수 있습니다.',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppColors.textSecondary,
-                    height: 1.5,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '현재 조회 기준',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          locationLabel,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            flex: 6,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: mapCenter,
+                    initialZoom: 15,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.yaksok.yaksok',
+                    ),
+                    MarkerLayer(
+                      markers: pharmacies.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final pharmacy = entry.value;
+                        final isSelected = _selectedIndex == index;
+                        return Marker(
+                          point: LatLng(
+                            pharmacy.latitude,
+                            pharmacy.longitude,
+                          ),
+                          width: 56,
+                          height: 56,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedIndex = index;
+                              });
+                              _mapController.move(
+                                LatLng(pharmacy.latitude, pharmacy.longitude),
+                                16,
+                              );
+                            },
+                            child: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppColors.primaryBlue
+                                    : Colors.red,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.16),
+                                    blurRadius: 10,
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.local_pharmacy,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
           Expanded(
+            flex: 4,
             child: pharmacies.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : ListView.builder(
@@ -82,7 +211,13 @@ class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
                       final isSelected = _selectedIndex == index;
 
                       return GestureDetector(
-                        onTap: () => setState(() => _selectedIndex = index),
+                        onTap: () {
+                          setState(() => _selectedIndex = index);
+                          _mapController.move(
+                            LatLng(pharmacy.latitude, pharmacy.longitude),
+                            16,
+                          );
+                        },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           margin: const EdgeInsets.only(bottom: 10),

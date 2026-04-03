@@ -1,12 +1,18 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:record/record.dart';
 
 import '../models/models.dart';
 import '../providers/app_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import 'login_screen.dart';
 
 class DoctorNotesScreen extends StatelessWidget {
   const DoctorNotesScreen({super.key});
@@ -15,6 +21,19 @@ class DoctorNotesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final notes = app.doctorNotes;
+
+    if (!app.isLoggedIn) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('진료 기록')),
+        body: LoginRequiredWidget(
+          title: '진료 기록은 로그인 후 사용할 수 있어요',
+          subtitle: '음성 업로드, AI 요약, 복약 일정 자동 생성 기능이 함께 동작합니다.',
+          onLogin: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -117,7 +136,7 @@ class DoctorNotesScreen extends StatelessWidget {
         backgroundColor: Colors.red,
         icon: const Icon(Icons.mic, color: Colors.white),
         label: const Text(
-          '음성 업로드',
+          '녹음/업로드',
           style: TextStyle(color: Colors.white),
         ),
       ),
@@ -125,10 +144,13 @@ class DoctorNotesScreen extends StatelessWidget {
   }
 
   Future<void> _showNoteDetail(BuildContext context, DoctorNote note) async {
-    final detailed = await context.read<AppProvider>().loadDoctorNoteDetail(note.id);
+    final app = context.read<AppProvider>();
+    final detailed = await app.loadDoctorNoteDetail(note.id);
     if (!context.mounted) {
       return;
     }
+
+    final guardianPhone = app.currentUser?.guardianPhone ?? '';
 
     showModalBottomSheet(
       context: context,
@@ -250,6 +272,41 @@ class DoctorNotesScreen extends StatelessWidget {
                   ),
                 ),
               ],
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: guardianPhone.isEmpty
+                      ? null
+                      : () async {
+                          try {
+                            final message = await context
+                                .read<AppProvider>()
+                                .notifyGuardian(detailed.id);
+                            if (!context.mounted) {
+                              return;
+                            }
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(message)),
+                            );
+                          } catch (error) {
+                            if (!context.mounted) {
+                              return;
+                            }
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(error.toString())),
+                            );
+                          }
+                        },
+                  icon: const Icon(Icons.sms_outlined),
+                  label: Text(
+                    guardianPhone.isEmpty
+                        ? '프로필에서 보호자 연락처를 먼저 등록하세요'
+                        : '보호자에게 진료 알림 보내기',
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -260,6 +317,10 @@ class DoctorNotesScreen extends StatelessWidget {
   void _showUploadDialog(BuildContext context) {
     DateTime? selectedDate;
     PlatformFile? pickedFile;
+    final recorder = AudioRecorder();
+    String? recordedPath;
+    bool isRecording = false;
+    bool isSubmitting = false;
 
     showModalBottomSheet(
       context: context,
@@ -291,7 +352,7 @@ class DoctorNotesScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               const Text(
-                '진료 음성 업로드',
+                '진료 음성 녹음 또는 업로드',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
@@ -307,7 +368,88 @@ class DoctorNotesScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () async {
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          try {
+                            if (!isRecording) {
+                              if (!await recorder.hasPermission()) {
+                                if (!context.mounted) {
+                                  return;
+                                }
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('마이크 권한이 필요합니다.'),
+                                  ),
+                                );
+                                return;
+                              }
+                              final dir = await getTemporaryDirectory();
+                              final filePath =
+                                  '${dir.path}/doctor_note_${DateTime.now().millisecondsSinceEpoch}.m4a';
+                              await recorder.start(
+                                const RecordConfig(
+                                  encoder: AudioEncoder.aacLc,
+                                  bitRate: 128000,
+                                  sampleRate: 44100,
+                                ),
+                                path: filePath,
+                              );
+                              setModalState(() {
+                                isRecording = true;
+                                recordedPath = null;
+                                pickedFile = null;
+                              });
+                              return;
+                            }
+
+                            final path = await recorder.stop();
+                              setModalState(() {
+                                isRecording = false;
+                                recordedPath = path;
+                                if (path != null) {
+                                  final recordedFile = File(path);
+                                  pickedFile = PlatformFile(
+                                    name: path.split(Platform.pathSeparator).last,
+                                    path: path,
+                                    size: recordedFile.existsSync()
+                                        ? recordedFile.lengthSync()
+                                        : 0,
+                                  );
+                                }
+                              });
+                          } catch (_) {
+                            if (!context.mounted) {
+                              return;
+                            }
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('녹음 시작 또는 종료에 실패했습니다.'),
+                              ),
+                            );
+                          }
+                        },
+                  icon: Icon(isRecording ? Icons.stop_circle_outlined : Icons.mic_none_outlined),
+                  label: Text(isRecording ? '녹음 중지' : '앱에서 바로 녹음'),
+                ),
+              ),
+              if (recordedPath != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '녹음 준비됨: ${pickedFile?.name ?? recordedPath!.split(Platform.pathSeparator).last}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: isSubmitting || isRecording
+                      ? null
+                      : () async {
                     final result = await FilePicker.platform.pickFiles(
                       type: FileType.custom,
                       allowedExtensions: const [
@@ -326,6 +468,7 @@ class DoctorNotesScreen extends StatelessWidget {
                     }
                     setModalState(() {
                       pickedFile = result.files.single;
+                      recordedPath = null;
                     });
                   },
                   icon: const Icon(Icons.upload_file),
@@ -365,29 +508,28 @@ class DoctorNotesScreen extends StatelessWidget {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: pickedFile == null
+                  onPressed: pickedFile == null || isRecording || isSubmitting
                       ? null
                       : () async {
-                          final bytes = pickedFile!.bytes;
-                          if (bytes == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('파일 데이터를 읽지 못했습니다. 다시 선택해 주세요.'),
-                              ),
-                            );
-                            return;
-                          }
-
                           try {
-                            final note =
-                                await context.read<AppProvider>().uploadDoctorNoteAudio(
-                                      bytes: bytes,
-                                      fileName: pickedFile!.name,
-                                      visitDate: selectedDate == null
-                                          ? null
-                                          : DateFormat('yyyy-MM-dd')
-                                              .format(selectedDate!),
-                                    );
+                            setModalState(() {
+                              isSubmitting = true;
+                            });
+                            Uint8List? bytes = pickedFile!.bytes;
+                            if (bytes == null && pickedFile!.path != null) {
+                              bytes = await File(pickedFile!.path!).readAsBytes();
+                            }
+                            if (bytes == null) {
+                              throw Exception('파일 데이터를 읽지 못했습니다.');
+                            }
+
+                            final note = await context.read<AppProvider>().uploadDoctorNoteAudio(
+                                  bytes: bytes,
+                                  fileName: pickedFile!.name,
+                                  visitDate: selectedDate == null
+                                      ? null
+                                      : DateFormat('yyyy-MM-dd').format(selectedDate!),
+                                );
                             if (!ctx.mounted) {
                               return;
                             }
@@ -402,18 +544,33 @@ class DoctorNotesScreen extends StatelessWidget {
                                 ),
                               ),
                             );
-                          } catch (_) {
+                          } catch (error) {
                             if (!context.mounted) {
                               return;
                             }
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('음성 업로드 또는 분석에 실패했습니다.'),
+                              SnackBar(
+                                content: Text('음성 업로드 또는 분석에 실패했습니다. ${error.toString()}'),
                               ),
                             );
+                          } finally {
+                            if (ctx.mounted) {
+                              setModalState(() {
+                                isSubmitting = false;
+                              });
+                            }
                           }
                         },
-                  child: const Text('업로드 및 분석'),
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text('업로드 및 분석'),
                 ),
               ),
               const SizedBox(height: 8),

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import 'login_screen.dart';
 
 class HealthRecordsScreen extends StatelessWidget {
   const HealthRecordsScreen({super.key});
@@ -13,6 +14,19 @@ class HealthRecordsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final records = app.symptomHistory;
+
+    if (!app.isLoggedIn) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('건강 기록')),
+        body: LoginRequiredWidget(
+          title: '건강 기록은 로그인 후 볼 수 있어요',
+          subtitle: '증상 분석 기록과 응급 여부 안내를 안전하게 저장해드립니다.',
+          onLogin: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(

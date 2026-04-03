@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import 'login_screen.dart';
 
 class DiseasesScreen extends StatefulWidget {
   const DiseasesScreen({super.key});
@@ -44,8 +45,22 @@ class _DiseasesScreenState extends State<DiseasesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final snapshot = context.watch<AppProvider>().diseaseSnapshot;
+    final app = context.watch<AppProvider>();
+    final snapshot = app.diseaseSnapshot;
     final items = snapshot?.topDiseases ?? const [];
+
+    if (!app.isLoggedIn) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('유행 질병 현황')),
+        body: LoginRequiredWidget(
+          title: '유행 질병 정보는 로그인 후 볼 수 있어요',
+          subtitle: '지역별 감염병 현황과 주의 안내를 확인할 수 있습니다.',
+          onLogin: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(

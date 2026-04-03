@@ -20,7 +20,10 @@ class HomeScreen extends StatelessWidget {
     final user = app.currentUser;
     final weather = app.weatherSnapshot?.weather;
     final air = app.weatherSnapshot?.airQuality;
-    final schedules = app.schedules.where((item) => item.isActive).take(2).toList();
+    final activeSchedules = app.schedules.where((item) => item.isActive).toList();
+    final schedules = (activeSchedules.isNotEmpty ? activeSchedules : app.schedules)
+        .take(2)
+        .toList();
     final latestNote = app.doctorNotes.isNotEmpty ? app.doctorNotes.first : null;
     final trendingDisease = app.diseaseSnapshot?.topDiseases.isNotEmpty == true
         ? app.diseaseSnapshot!.topDiseases.first
@@ -89,46 +92,64 @@ class HomeScreen extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '오늘의 날씨',
-                          style: TextStyle(color: Colors.white70, fontSize: 14),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          weather == null
-                              ? '데이터 없음'
-                              : '${weather.temperature} ${weather.sky}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '오늘의 날씨',
+                            style: TextStyle(color: Colors.white70, fontSize: 14),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            air == null
-                                ? '대기질 정보 없음'
-                                : '미세먼지 ${air.pm10.grade}',
+                          const SizedBox(height: 2),
+                          Text(
+                            app.currentLocationLabel,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: Colors.white70,
                               fontSize: 12,
+                              height: 1.4,
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          Text(
+                            weather == null
+                                ? '날씨 정보 불러오는 중'
+                                : '${weather.temperature} ${weather.sky}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              air == null
+                                  ? '대기질 정보 확인 중'
+                                  : '미세먼지 ${air.pm10.grade}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 12),
                     const Icon(
                       Icons.wb_sunny_rounded,
                       color: Colors.white,
@@ -147,7 +168,7 @@ class HomeScreen extends StatelessWidget {
                 QuickActionButton(
                   icon: Icons.sick_outlined,
                   label: '증상 분석',
-                  color: AppColors.primaryBlue,
+                  color: const Color(0xFFE53935),
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const SymptomsScreen()),
@@ -156,7 +177,7 @@ class HomeScreen extends StatelessWidget {
                 QuickActionButton(
                   icon: Icons.coronavirus_outlined,
                   label: '유행 질병',
-                  color: AppColors.lightBlue,
+                  color: const Color(0xFFFB8C00),
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const DiseasesScreen()),
@@ -164,8 +185,8 @@ class HomeScreen extends StatelessWidget {
                 ),
                 QuickActionButton(
                   icon: Icons.medication_outlined,
-                  label: '약 추천',
-                  color: AppColors.accentGreen,
+                  label: '약 추천/사용법',
+                  color: const Color(0xFF43A047),
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -176,7 +197,7 @@ class HomeScreen extends StatelessWidget {
                 QuickActionButton(
                   icon: Icons.local_pharmacy_outlined,
                   label: '약국 찾기',
-                  color: AppColors.primaryBlue,
+                  color: const Color(0xFF8E24AA),
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -237,6 +258,49 @@ class HomeScreen extends StatelessWidget {
                                   color: AppColors.textSecondary,
                                 ),
                               ),
+                              if (schedule.schedule.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: schedule.schedule.map((dose) {
+                                    final doseKey = _doseKeyForLabel(dose);
+                                    final isDone =
+                                        app.doseStatusFor(schedule.id)[doseKey] == true;
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isDone
+                                            ? AppColors.accentGreen.withValues(alpha: 0.14)
+                                            : AppColors.blueSurface,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        isDone ? '$dose 완료' : dose,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: isDone
+                                              ? AppColors.accentGreen
+                                              : AppColors.primaryBlue,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ] else if (schedule.displaySchedule.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  schedule.displaySchedule,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -368,5 +432,20 @@ class HomeScreen extends StatelessWidget {
       return '좋은 오후입니다';
     }
     return '좋은 저녁입니다';
+  }
+
+  String _doseKeyForLabel(String label) {
+    switch (label) {
+      case '아침':
+        return 'morning';
+      case '점심':
+        return 'afternoon';
+      case '저녁':
+        return 'evening';
+      case '취침 전':
+        return 'bedtime';
+      default:
+        return label;
+    }
   }
 }
