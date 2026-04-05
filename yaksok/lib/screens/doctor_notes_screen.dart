@@ -144,13 +144,10 @@ class DoctorNotesScreen extends StatelessWidget {
   }
 
   Future<void> _showNoteDetail(BuildContext context, DoctorNote note) async {
-    final app = context.read<AppProvider>();
-    final detailed = await app.loadDoctorNoteDetail(note.id);
+    final detailed = await context.read<AppProvider>().loadDoctorNoteDetail(note.id);
     if (!context.mounted) {
       return;
     }
-
-    final guardianPhone = app.currentUser?.guardianPhone ?? '';
 
     showModalBottomSheet(
       context: context,
@@ -276,35 +273,50 @@ class DoctorNotesScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 height: 52,
-                child: ElevatedButton.icon(
-                  onPressed: guardianPhone.isEmpty
-                      ? null
-                      : () async {
-                          try {
-                            final message = await context
-                                .read<AppProvider>()
-                                .notifyGuardian(detailed.id);
-                            if (!context.mounted) {
-                              return;
-                            }
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(message)),
-                            );
-                          } catch (error) {
-                            if (!context.mounted) {
-                              return;
-                            }
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(error.toString())),
-                            );
-                          }
-                        },
-                  icon: const Icon(Icons.sms_outlined),
-                  label: Text(
-                    guardianPhone.isEmpty
-                        ? '프로필에서 보호자 연락처를 먼저 등록하세요'
-                        : '보호자에게 진료 알림 보내기',
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (dialogCtx) => AlertDialog(
+                        title: const Text('진료 기록 삭제'),
+                        content: const Text('이 진료 기록을 삭제하시겠습니까?\n삭제 후에는 복구할 수 없습니다.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogCtx, false),
+                            child: const Text('취소'),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                            onPressed: () => Navigator.pop(dialogCtx, true),
+                            child: const Text('삭제', style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true && context.mounted) {
+                      try {
+                        await context.read<AppProvider>().deleteDoctorNote(detailed.id);
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('진료 기록이 삭제되었습니다.')),
+                          );
+                        }
+                      } catch (error) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(error.toString())),
+                          );
+                        }
+                      }
+                    }
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
                   ),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('진료 기록 삭제'),
                 ),
               ),
             ],
@@ -321,6 +333,7 @@ class DoctorNotesScreen extends StatelessWidget {
     String? recordedPath;
     bool isRecording = false;
     bool isSubmitting = false;
+    String? uploadError;
 
     showModalBottomSheet(
       context: context,
@@ -504,6 +517,23 @@ class DoctorNotesScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
+              if (uploadError != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Text(
+                      uploadError!,
+                      style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+                    ),
+                  ),
+                ),
               SizedBox(
                 width: double.infinity,
                 height: 52,
@@ -511,48 +541,91 @@ class DoctorNotesScreen extends StatelessWidget {
                   onPressed: pickedFile == null || isRecording || isSubmitting
                       ? null
                       : () async {
+                          setModalState(() {
+                            isSubmitting = true;
+                            uploadError = null;
+                          });
                           try {
-                            setModalState(() {
-                              isSubmitting = true;
-                            });
                             Uint8List? bytes = pickedFile!.bytes;
                             if (bytes == null && pickedFile!.path != null) {
                               bytes = await File(pickedFile!.path!).readAsBytes();
                             }
                             if (bytes == null) {
-                              throw Exception('파일 데이터를 읽지 못했습니다.');
+                              throw Exception('파일 데이터를 읽지 못했습니다. 다시 선택해주세요.');
                             }
 
-                            final note = await context.read<AppProvider>().uploadDoctorNoteAudio(
+                            final note = await ctx.read<AppProvider>().uploadDoctorNoteAudio(
                                   bytes: bytes,
                                   fileName: pickedFile!.name,
                                   visitDate: selectedDate == null
                                       ? null
                                       : DateFormat('yyyy-MM-dd').format(selectedDate!),
                                 );
-                            if (!ctx.mounted) {
-                              return;
-                            }
+                            if (!ctx.mounted) return;
                             Navigator.pop(ctx);
-                            if (!context.mounted) {
-                              return;
-                            }
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '분석 완료: ${note.summaryData.diagnosis.isNotEmpty ? note.summaryData.diagnosis : note.summary}',
+
+                            // 복용 일정 추가 확인 다이얼로그 (모달 닫힌 후 outer context 사용)
+                            if (note.proposedSchedules.isNotEmpty && context.mounted) {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (dialogCtx) => AlertDialog(
+                                  title: const Text('복용 일정 추가'),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('다음 약을 복용 일정에 추가할까요?'),
+                                      const SizedBox(height: 12),
+                                      ...note.proposedSchedules.map(
+                                        (s) => Padding(
+                                          padding: const EdgeInsets.only(bottom: 6),
+                                          child: Text(
+                                            '• ${s.medicineName}${s.scheduleText != null ? "  (${s.scheduleText})" : ""}',
+                                            style: const TextStyle(fontSize: 14),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(dialogCtx, false),
+                                      child: const Text('건너뛰기'),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.pop(dialogCtx, true),
+                                      child: const Text('추가하기'),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            );
-                          } catch (error) {
-                            if (!context.mounted) {
-                              return;
+                              );
+                              if (confirm == true && context.mounted) {
+                                try {
+                                  await context.read<AppProvider>().confirmSchedulesFromNote(note.id);
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('${note.proposedSchedules.length}개의 복용 일정이 추가되었습니다.')),
+                                    );
+                                  }
+                                } catch (_) {}
+                              }
                             }
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('음성 업로드 또는 분석에 실패했습니다. ${error.toString()}'),
-                              ),
-                            );
+
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    '분석 완료: ${note.summaryData.diagnosis.isNotEmpty ? note.summaryData.diagnosis : note.summary}',
+                                  ),
+                                ),
+                              );
+                            }
+                          } catch (error) {
+                            if (ctx.mounted) {
+                              setModalState(() {
+                                uploadError = '오류: ${error.toString()}';
+                              });
+                            }
                           } finally {
                             if (ctx.mounted) {
                               setModalState(() {

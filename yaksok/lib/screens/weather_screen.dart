@@ -29,6 +29,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
     final weather = snapshot?.weather;
     final air = snapshot?.airQuality;
     final advice = snapshot?.healthAdvice ?? const <String>[];
+    final isProfileAddressBased = app.currentUser?.address.isNotEmpty == true;
 
     if (!app.isLoggedIn) {
       return Scaffold(
@@ -54,7 +55,54 @@ class _WeatherScreenState extends State<WeatherScreen> {
         ],
       ),
       body: snapshot == null
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.cloud_off_outlined,
+                      size: 48,
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      '날씨 정보를 불러오지 못했습니다.',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      app.errorMessage?.isNotEmpty == true
+                          ? app.errorMessage!
+                          : '잠시 후 다시 시도해 주세요.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '현재 위치 기준 조회에 실패하면 기본 지역 정보로 다시 시도합니다.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () => context.read<AppProvider>().loadWeather(),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('다시 불러오기'),
+                    ),
+                  ],
+                ),
+              ),
+            )
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -84,11 +132,20 @@ class _WeatherScreenState extends State<WeatherScreen> {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  '서울 기준',
+                                Text(
+                                  isProfileAddressBased ? '프로필 주소 기준' : '현재 위치 기준',
                                   style: TextStyle(
                                     color: Colors.white70,
                                     fontSize: 14,
+                                  ),
+                                ),
+                                Text(
+                                  app.currentLocationLabel,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
                                   ),
                                 ),
                                 Text(
@@ -145,45 +202,80 @@ class _WeatherScreenState extends State<WeatherScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  if (air != null)
-                    YakSokCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(
-                                Icons.air,
-                                color: AppColors.accentGreen,
-                                size: 22,
+                  YakSokCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(
+                              Icons.air,
+                              color: AppColors.accentGreen,
+                              size: 22,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              '대기질',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
                               ),
-                              SizedBox(width: 8),
-                              Text(
-                                '대기질',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        if (air == null)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '대기질 정보를 아직 불러오지 못했습니다.',
                                 style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '현재 저장된 주소를 기준으로 측정소를 다시 찾는 중입니다. 새로고침을 눌러 다시 시도해 주세요.',
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 13,
+                                  height: 1.5,
                                 ),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
+                          )
+                        else
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: _aqiItem('미세먼지', air.pm10.value, air.pm10.grade),
+                              Text(
+                                '${air.stationName} 측정소 기준',
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 13,
+                                ),
                               ),
-                              Expanded(
-                                child: _aqiItem('초미세먼지', air.pm25.value, air.pm25.grade),
-                              ),
-                              Expanded(
-                                child: _aqiItem('통합지수', air.khai.value, air.khai.grade),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _aqiItem('미세먼지', air.pm10.value, air.pm10.grade),
+                                  ),
+                                  Expanded(
+                                    child: _aqiItem('초미세먼지', air.pm25.value, air.pm25.grade),
+                                  ),
+                                  Expanded(
+                                    child: _aqiItem('통합지수', air.khai.value, air.khai.grade),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
-                      ),
+                      ],
                     ),
+                  ),
                   const SizedBox(height: 16),
                   YakSokCard(
                     color: AppColors.greenSurface,

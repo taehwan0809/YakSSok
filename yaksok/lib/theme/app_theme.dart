@@ -4,14 +4,14 @@ import 'package:google_fonts/google_fonts.dart';
 class AppColors {
   // White 60%
   static const Color white = Color(0xFFFFFFFF);
-  static const Color background = Color(0xFFF5F7FA);
+  static const Color background = Color(0xFFF0F5F6);
   static const Color surfaceWhite = Color(0xFFFFFFFF);
 
-  // Blue 30%
-  static const Color primaryBlue = Color(0xFF1976D2);
-  static const Color lightBlue = Color(0xFF42A5F5);
-  static const Color darkBlue = Color(0xFF0D47A1);
-  static const Color blueSurface = Color(0xFFE3F2FD);
+  // Main: 밝고 선명한 민트/틸
+  static const Color primaryBlue = Color(0xFF00B4C6);   // 밝은 시안
+  static const Color lightBlue = Color(0xFF5DD5E2);     // 연한 시안
+  static const Color darkBlue = Color(0xFF007A8A);      // 짙은 틸
+  static const Color blueSurface = Color(0xFFCCF2F6);   // 밝은 민트 배경
 
   // Green 10%
   static const Color accentGreen = Color(0xFF43A047);

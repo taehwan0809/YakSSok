@@ -83,7 +83,7 @@ class HomeScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppColors.primaryBlue, AppColors.lightBlue],
+                    colors: [AppColors.darkBlue, AppColors.primaryBlue],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -136,8 +136,8 @@ class HomeScreen extends StatelessWidget {
                             ),
                             child: Text(
                               air == null
-                                  ? '대기질 정보 확인 중'
-                                  : '미세먼지 ${air.pm10.grade}',
+                                  ? '대기질 정보 없음'
+                                  : '${air.stationName} 미세먼지 ${air.pm10.grade}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -207,6 +207,43 @@ class HomeScreen extends StatelessWidget {
                 ),
               ],
             ),
+            // 수동 전송 모드일 때만 홈에 버튼 표시
+            if (app.isLoggedIn &&
+                app.currentUser?.guardianPhone.isNotEmpty == true &&
+                app.guardianShareFrequency == 'manual') ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: app.isBusy
+                      ? null
+                      : () async {
+                          try {
+                            final message = await context.read<AppProvider>().notifyHealthSummary();
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(message)),
+                            );
+                          } catch (error) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(error.toString())),
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryBlue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  icon: const Icon(Icons.sms_outlined),
+                  label: const Text('보호자에게 건강 알림 보내기', style: TextStyle(fontSize: 15)),
+                ),
+              ),
+            ],
             const SizedBox(height: 28),
             const SectionHeader(title: '복용 일정'),
             const SizedBox(height: 12),
@@ -303,12 +340,6 @@ class HomeScreen extends StatelessWidget {
                               ],
                             ],
                           ),
-                        ),
-                        StatusBadge(
-                          text: schedule.isActive ? '활성' : '중지',
-                          color: schedule.isActive
-                              ? AppColors.accentGreen
-                              : Colors.orange,
                         ),
                       ],
                     ),

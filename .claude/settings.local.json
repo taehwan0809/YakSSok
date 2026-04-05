@@ -17,7 +17,8 @@
       "Bash(/c/Users/hongk/AppData/Local/Android/Sdk/platform-tools/adb.exe kill-server:*)",
       "Bash(/c/Users/hongk/AppData/Local/Android/Sdk/platform-tools/adb.exe start-server:*)",
       "Bash(/c/Users/hongk/AppData/Local/Android/Sdk/platform-tools/adb.exe reverse:*)",
-      "Bash(/c/Users/hongk/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat:*)"
+      "Bash(/c/Users/hongk/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat:*)",
+      "Bash(xargs grep:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\hongk\\yaksok\\android"

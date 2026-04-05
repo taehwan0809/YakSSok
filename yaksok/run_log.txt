@@ -1,0 +1,147 @@
+Connected devices:
+SM F956N (mobile)            • R3CX703RX2T   • android-arm64 • Android 16 (API 36)
+sdk gphone64 x86 64 (mobile) • emulator-5554 • android-x64   • Android 15 (API 35) (emulator)
+[1]: SM F956N (R3CX703RX2T)
+[2]: sdk gphone64 x86 64 (emulator-5554)
+Please choose one (or "q" to quit): 1
+Resolving dependencies...
+Downloading packages...
+  app_links 6.4.1 (7.0.0 available)
+  async 2.11.0 (2.13.1 available)
+  boolean_selector 2.1.1 (2.1.2 available)
+  cross_file 0.3.4+2 (0.3.5+2 available)
+  cupertino_icons 1.0.8 (1.0.9 available)
+  ffi 2.1.3 (2.2.0 available)
+  file_picker 8.3.7 (10.3.10 available)
+  fl_chart 0.69.2 (1.2.0 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  flutter_local_notifications 17.2.4 (21.0.0 available)
+  flutter_local_notifications_linux 4.0.1 (8.0.0 available)
+  flutter_local_notifications_platform_interface 7.2.0 (11.0.0 available)
+  flutter_plugin_android_lifecycle 2.0.29 (2.0.34 available)
+  flutter_svg 2.2.0 (2.2.4 available)
+  geocoding_android 4.0.1 (5.0.1 available)
+  geocoding_platform_interface 3.2.0 (5.0.0 available)
+  intl 0.19.0 (0.20.2 available)
+  lints 5.1.1 (6.1.0 available)
+  lottie 3.3.1 (3.3.2 available)
+  meta 1.17.0 (1.18.2 available)
+  mgrs_dart 2.0.0 (3.0.0 available)
+  path_provider_android 2.2.17 (2.2.23 available)
+  path_provider_foundation 2.4.1 (2.6.0 available)
+  permission_handler 11.4.0 (12.0.1 available)
+  permission_handler_android 12.1.0 (13.0.1 available)
+  petitparser 6.0.2 (7.0.2 available)
+  proj4dart 2.1.0 (3.0.0 available)
+  shared_preferences 2.5.3 (2.5.5 available)
+  shared_preferences_android 2.4.11 (2.4.23 available)
+  shared_preferences_foundation 2.5.4 (2.5.6 available)
+  shared_preferences_platform_interface 2.4.1 (2.4.2 available)
+  source_span 1.10.0 (1.10.2 available)
+  sqflite 2.4.1 (2.4.2 available)
+  sqflite_android 2.4.0 (2.4.2+3 available)
+  sqflite_common 2.5.4+6 (2.5.6 available)
+  sqflite_darwin 2.4.1+1 (2.4.2 available)
+  string_scanner 1.3.0 (1.4.1 available)
+  synchronized 3.3.0+3 (3.4.0 available)
+  table_calendar 3.1.3 (3.2.0 available)
+  term_glyph 1.2.1 (1.2.2 available)
+  test_api 0.7.10 (0.7.11 available)
+  timezone 0.9.4 (0.11.0 available)
+  unicode 0.3.1 (1.1.9 available)
+  url_launcher_android 6.3.17 (6.3.29 available)
+  url_launcher_ios 6.3.3 (6.4.1 available)
+  url_launcher_linux 3.2.1 (3.2.2 available)
+  url_launcher_macos 3.2.2 (3.2.5 available)
+  url_launcher_web 2.4.1 (2.4.2 available)
+  url_launcher_windows 3.1.4 (3.1.5 available)
+  vector_graphics 1.1.19 (1.1.21 available)
+  vector_graphics_compiler 1.1.18 (1.2.0 available)
+  vector_math 2.2.0 (2.3.0 available)
+  vm_service 14.3.0 (15.0.2 available)
+  win32 5.10.1 (6.0.0 available)
+  xml 6.5.0 (6.6.1 available)
+Got dependencies!
+55 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Launching lib\main.dart on SM F956N in debug mode...
+Running Gradle task 'assembleDebug'...                             12.0s
+√ Built build\app\outputs\flutter-apk\app-debug.apk
+Installing build\app\outputs\flutter-apk\app-debug.apk...          13.2s
+D/FlutterJNI(30313): Beginning load of flutter...
+D/FlutterJNI(30313): flutter (null) was loaded normally!
+I/flutter (30313): [IMPORTANT:flutter/shell/common/shell.cc(528)] [Action Required]: Impeller opt-out deprecated.
+I/flutter (30313):     The application opted out of Impeller by either using the
+I/flutter (30313):     `--no-enable-impeller` flag or the
+I/flutter (30313):     `io.flutter.embedding.android.EnableImpeller` `AndroidManifest.xml` entry.
+I/flutter (30313):     These options are going to go away in an upcoming Flutter release. Remove
+I/flutter (30313):     the explicit opt-out. If you need to opt-out, please report a bug describing
+I/flutter (30313):     the issue.
+I/flutter (30313): 
+I/flutter (30313):     https://github.com/flutter/flutter/issues/new?template=02_bug.yml
+I/flutter (30313): 
+D/FlutterGeolocator(30313): Attaching Geolocator to activity
+D/FlutterRenderer(30313): Width is zero. 0,0
+D/FlutterRenderer(30313): Width is zero. 0,0
+D/FlutterJNI(30313): Sending viewport metrics to the engine.
+D/FlutterGeolocator(30313): Creating service.
+D/FlutterGeolocator(30313): Binding to location service.
+D/FlutterGeolocator(30313): Geolocator foreground service connected
+D/FlutterGeolocator(30313): Initializing Geolocator services
+D/FlutterGeolocator(30313): Flutter engine connected. Connected engine count 1
+D/FlutterJNI(30313): Sending viewport metrics to the engine.
+D/FlutterJNI(30313): Sending viewport metrics to the engine.
+D/FlutterJNI(30313): Sending viewport metrics to the engine.
+Syncing files to device SM F956N...                                 81ms
+
+Flutter run key commands.
+r Hot reload. 
+R Hot restart.
+h List all available interactive commands.
+d Detach (terminate "flutter run" but leave application running).
+c Clear the screen
+q Quit (terminate the application on the device).
+
+A Dart VM Service on SM F956N is available at: http://127.0.0.1:58912/3WIKadLmaqY=/
+The Flutter DevTools debugger and profiler on SM F956N is available at: http://127.0.0.1:58912/3WIKadLmaqY=/devtools/?uri=ws://127.0.0.1:58912/3WIKadLmaqY=/ws
+I/VRI[MainActivity]@728d4e6(30313): call setFrameRateCategory for touch hint category=high hint, reason=touch, vri=VRI[MainActivity]@728d4e6
+I/ImeFocusController(30313): onPreWindowFocus: skipped hasWindowFocus=false mHasImeFocus=true
+I/ImeFocusController(30313): onPostWindowFocus: skipped hasWindowFocus=false mHasImeFocus=true
+D/InputTransport(30313): Input channel destroyed: 'ClientS', fd=156
+I/VRI[MainActivity]@728d4e6(30313): handleAppVisibility mAppVisible = true visible = false
+D/VRI[MainActivity]@728d4e6(30313): visibilityChanged oldVisibility=true newVisibility=false
+I/SV[260435263 MainActivity](30313): onWindowVisibilityChanged(8) false io.flutter.embedding.android.FlutterSurfaceView{f85ed3f V.E...... ........ 0,0-968,2376} of VRI[MainActivity]@728d4e6
+I/SurfaceView(30313): 260435263 Changes: creating=false format=false size=false visible=true alpha=false hint=false left=false top=false z=false attached=true lifecycleStrategy=false
+I/SurfaceView(30313): 260435263 Cur surface: Surface(name=null mNativeObject=-5476376632586743712)/@0x96e78d2
+D/SurfaceComposerClient(30313): setCornerRadius ## f85ed3f SurfaceView[com.yaksok.yaksok/com.yaksok.yaksok.MainActivity]@0#131493 cornerRadius=0.000000
+I/SurfaceView(30313): 260435263 surfaceDestroyed
+I/SV[260435263 MainActivity](30313): surfaceDestroyed callback.size 1 #2 io.flutter.embedding.android.FlutterSurfaceView{f85ed3f V.E...... ........ 0,0-968,2376}
+I/SV[260435263 MainActivity](30313): updateSurface: mVisible = false mSurface.isValid() = true
+I/SV[260435263 MainActivity](30313): releaseSurfaces: viewRoot = VRI[MainActivity]@728d4e6
+V/SurfaceView(30313): Layout: x=0 y=0 w=968 h=2376, frame=Rect(0, 0 - 968, 2376)
+D/SurfaceView(30313): 75561645 windowPositionLost, frameNr = 0
+D/HWUI    (30313): CacheManager::trimMemory(20)
+I/VRI[MainActivity]@728d4e6(30313): Relayout returned: old=(0,0,968,2376) new=(0,0,968,2376) relayoutAsync=false req=(968,2376)8 dur=2 res=0x2 s={false 0x0} ch=true seqId=0
+I/SV[260435263 MainActivity](30313): windowStopped(true) false io.flutter.embedding.android.FlutterSurfaceView{f85ed3f V.E...... ........ 0,0-968,2376} of VRI[MainActivity]@728d4e6
+D/SV[260435263 MainActivity](30313): updateSurface: surface is not valid
+I/SV[260435263 MainActivity](30313): releaseSurfaces: viewRoot = VRI[MainActivity]@728d4e6
+D/VRI[MainActivity]@728d4e6(30313): applyTransactionOnDraw applyImmediately
+D/SV[260435263 MainActivity](30313): updateSurface: surface is not valid
+I/SV[260435263 MainActivity](30313): releaseSurfaces: viewRoot = VRI[MainActivity]@728d4e6
+D/VRI[MainActivity]@728d4e6(30313): applyTransactionOnDraw applyImmediately
+D/VRI[MainActivity]@728d4e6(30313): Not drawing due to not visible. Reason=!mAppVisible && !mForceDecorViewVisibility
+D/VRI[MainActivity]@728d4e6(30313): Pending transaction will not be applied in sync with a draw due to view not visible
+I/VRI[MainActivity]@728d4e6(30313): mWNT: t=0xb4000076ce665110 mBlastBufferQueue=0xnull fn= 0 HdrRenderState mRenderHdrSdrRatio=1.0 caller= android.view.ViewRootImpl.handleSyncRequestWhenNoAsyncDraw:6733 android.view.ViewRootImpl.performTraversals:5504 android.view.ViewRootImpl.doTraversal:3924 
+D/HWUI    (30313): CacheManager::trimMemory(20)
+I/VRI[MainActivity]@728d4e6(30313): stopped(true) old = false
+D/VRI[MainActivity]@728d4e6(30313): WindowStopped on com.yaksok.yaksok/com.yaksok.yaksok.MainActivity set to true
+D/HWUI    (30313): CacheManager::trimMemory(20)
+D/SV[260435263 MainActivity](30313): updateSurface: surface is not valid
+I/SV[260435263 MainActivity](30313): releaseSurfaces: viewRoot = VRI[MainActivity]@728d4e6
+D/VRI[MainActivity]@728d4e6(30313): applyTransactionOnDraw applyImmediately
+D/SV[260435263 MainActivity](30313): updateSurface: surface is not valid
+I/SV[260435263 MainActivity](30313): releaseSurfaces: viewRoot = VRI[MainActivity]@728d4e6
+D/VRI[MainActivity]@728d4e6(30313): applyTransactionOnDraw applyImmediately
+D/BBA2    (30313): setIsFg isFg = false; delayValue 3999ms
+D/HWUI    (30313): CacheManager::trimMemory(40)
+Lost connection to device.

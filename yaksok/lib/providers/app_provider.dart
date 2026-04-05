@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/models.dart';
 import '../services/backend_api.dart';
+import '../services/notification_service.dart';
 
 class AppProvider extends ChangeNotifier {
   static const String _baseUrlKey = 'backend_base_url';
@@ -23,7 +24,7 @@ class AppProvider extends ChangeNotifier {
   static const double defaultLng = 126.9780;
   static const String defaultStationName = '\uC885\uB85C\uAD6C';
   static const String defaultRegion = '\uC11C\uC6B8';
-  static const String defaultBaseUrl = 'http://10.0.2.2:3000';
+  static const String defaultBaseUrl = 'https://unimpressedly-obconical-westin.ngrok-free.dev';
 
   final BackendApi _api = BackendApi();
 
@@ -93,6 +94,7 @@ class AppProvider extends ChangeNotifier {
 
       try {
         _currentUser = await _api.fetchMe();
+        await _syncLocationFromProfileAddress();
         await _persistSession();
         await _loadInitialData();
       } on RegistrationRequiredException catch (error) {
@@ -125,6 +127,7 @@ class AppProvider extends ChangeNotifier {
       _currentUser = user;
       _needsRegistration = false;
       _authToken = _api.token;
+      await _syncLocationFromProfileAddress();
       await _persistSession();
       await _loadInitialData();
     });
@@ -154,6 +157,7 @@ class AppProvider extends ChangeNotifier {
     }
     _schedules = await _safeLoad(() => _api.fetchSchedules(), fallback: _schedules);
     await _restoreScheduleDoseStatus();
+    NotificationService.rescheduleAll(_schedules).ignore();
     notifyListeners();
   }
 
@@ -221,15 +225,53 @@ class AppProvider extends ChangeNotifier {
     if (!isLoggedIn) {
       return;
     }
-    _weatherSnapshot = await _safeLoad(
-      () => _api.fetchWeather(
+
+    final resolvedStationName = _resolveStationName(stationName);
+    if (_currentStationName != resolvedStationName) {
+      _currentStationName = resolvedStationName;
+      await _persistLocation();
+    }
+
+    try {
+      _weatherSnapshot = await _api.fetchWeather(
         lat: lat ?? currentLat,
         lng: lng ?? currentLng,
-        stationName: stationName ?? currentStationName,
-      ),
-      fallback: _weatherSnapshot,
-    );
+        stationName: resolvedStationName,
+      );
+    } on ApiException {
+      _weatherSnapshot = await _safeLoad(
+        () => _api.fetchWeather(
+          lat: defaultLat,
+          lng: defaultLng,
+          stationName: defaultStationName,
+        ),
+        fallback: _weatherSnapshot,
+      );
+    }
     notifyListeners();
+  }
+
+  Future<void> deleteDoctorNote(int id) async {
+    await _api.deleteDoctorNote(id);
+    _doctorNotes = _doctorNotes.where((n) => n.id != id).toList();
+    notifyListeners();
+  }
+
+  Future<String> notifyHealthSummary() async {
+    if (!isLoggedIn) {
+      throw const ApiException('로그인 후 보호자 알림을 발송할 수 있습니다.');
+    }
+    return _runBusyValue(() => _api.notifyHealthSummary());
+  }
+
+  Future<void> confirmSchedulesFromNote(int noteId) async {
+    await _api.confirmSchedulesFromNote(noteId);
+    await refreshSchedules();
+    notifyListeners();
+  }
+
+  Future<DiseasePreventionInfo> fetchDiseasePreventionInfo(String diseaseName) {
+    return _api.fetchDiseasePreventionInfo(diseaseName);
   }
 
   Future<void> loadDiseases({String region = defaultRegion}) async {
@@ -287,6 +329,7 @@ class AppProvider extends ChangeNotifier {
     required String medicineName,
     required String scheduleText,
     String caution = '',
+    DateTime? endDate,
   }) async {
     if (!isLoggedIn) {
       throw const ApiException('로그인 후 복용 일정을 등록할 수 있습니다.');
@@ -295,6 +338,7 @@ class AppProvider extends ChangeNotifier {
       medicineName: medicineName,
       scheduleText: scheduleText,
       caution: caution,
+      endDate: endDate,
     );
     _schedules = [created, ..._schedules];
     _scheduleDoseStatus = {
@@ -302,6 +346,7 @@ class AppProvider extends ChangeNotifier {
       created.id: _emptyDoseStatus(),
     };
     await _persistScheduleDoseStatus();
+    NotificationService.rescheduleAll(_schedules).ignore();
     notifyListeners();
   }
 
@@ -323,6 +368,7 @@ class AppProvider extends ChangeNotifier {
     updatedMap.remove(id);
     _scheduleDoseStatus = updatedMap;
     await _persistScheduleDoseStatus();
+    NotificationService.cancelForSchedule(id).ignore();
     notifyListeners();
   }
 
@@ -421,6 +467,7 @@ class AppProvider extends ChangeNotifier {
         guardianEmail: guardianEmail,
         guardianPhone: guardianPhone,
       );
+      await _syncLocationFromProfileAddress();
     });
   }
 
@@ -464,16 +511,20 @@ class AppProvider extends ChangeNotifier {
         final place = placemarks.first;
         final parts = [
           place.administrativeArea,
+          place.subAdministrativeArea,
           place.locality,
           place.subLocality,
           place.thoroughfare,
         ].where((item) => item != null && item.trim().isNotEmpty).cast<String>().toList();
         _currentLocationLabel = parts.isNotEmpty ? parts.join(' ') : '현재 위치';
-        _currentStationName = (place.subLocality?.trim().isNotEmpty == true)
-            ? place.subLocality!.trim()
-            : (place.locality?.trim().isNotEmpty == true)
-                ? place.locality!.trim()
-                : defaultStationName;
+        _currentStationName =
+            _extractStationNameFromParts([
+              place.subAdministrativeArea,
+              place.locality,
+              place.subLocality,
+              place.administrativeArea,
+            ]) ??
+            defaultStationName;
       }
     } catch (_) {
       _currentLocationLabel = '현재 위치';
@@ -499,6 +550,15 @@ class AppProvider extends ChangeNotifier {
     return _currentLocationLabel;
   }
 
+  Future<Map<String, dynamic>> loginWithKakaoSdk({
+    required String baseUrl,
+    required String kakaoAccessToken,
+  }) async {
+    final resolvedUrl = baseUrl.trim().isEmpty ? defaultBaseUrl : baseUrl.trim();
+    _baseUrl = resolvedUrl;
+    return _api.loginWithKakaoSdk(baseUrl: resolvedUrl, kakaoAccessToken: kakaoAccessToken);
+  }
+
   Future<String> fetchKakaoAuthUrl(String baseUrl) {
     return _api.fetchKakaoAuthUrl(baseUrl.trim().isEmpty ? defaultBaseUrl : baseUrl);
   }
@@ -514,7 +574,7 @@ class AppProvider extends ChangeNotifier {
     _guardianShareFrequency =
         prefs.getString(_guardianShareFrequencyKey) ?? 'manual';
     _guardianShareLastDates = {
-      for (final channel in ['doctor_note', 'symptom', 'dose'])
+      for (final channel in ['health_summary'])
         channel: prefs.getString('$_guardianShareLastPrefix$channel') ?? '',
     };
 
@@ -522,7 +582,9 @@ class AppProvider extends ChangeNotifier {
       _api.configure(baseUrl: _baseUrl, token: _authToken);
       try {
         _currentUser = await _api.fetchMe();
+        await _syncLocationFromProfileAddress();
         await _loadInitialData();
+        await _autoShareDailyIfNeeded();
       } on RegistrationRequiredException catch (error) {
         _needsRegistration = true;
         _errorMessage = error.message;
@@ -551,14 +613,22 @@ class AppProvider extends ChangeNotifier {
       () => _api.fetchMedicineHistory(),
       fallback: const [],
     );
-    _weatherSnapshot = await _safeLoad(
-      () => _api.fetchWeather(
+    try {
+      _weatherSnapshot = await _api.fetchWeather(
         lat: lat,
         lng: lng,
         stationName: stationName,
-      ),
-      fallback: null,
-    );
+      );
+    } on ApiException {
+      _weatherSnapshot = await _safeLoad(
+        () => _api.fetchWeather(
+          lat: defaultLat,
+          lng: defaultLng,
+          stationName: defaultStationName,
+        ),
+        fallback: null,
+      );
+    }
     _diseaseSnapshot = await _safeLoad(
       () => _api.fetchDiseases(region: defaultRegion),
       fallback: null,
@@ -590,6 +660,56 @@ class AppProvider extends ChangeNotifier {
     }
     await prefs.setString(_locationLabelKey, _currentLocationLabel);
     await prefs.setString(_stationNameKey, _currentStationName);
+  }
+
+  Future<void> _syncLocationFromProfileAddress() async {
+    final address = _currentUser?.address.trim() ?? '';
+    if (address.isEmpty) {
+      return;
+    }
+
+    try {
+      final locations = await locationFromAddress(address);
+      if (locations.isEmpty) {
+        _currentLocationLabel = address;
+        _currentStationName =
+            _extractStationNameFromAddress(address) ?? defaultStationName;
+        return;
+      }
+
+      final location = locations.first;
+      _currentLat = location.latitude;
+      _currentLng = location.longitude;
+      _currentLocationLabel = address;
+
+      try {
+        final placemarks = await placemarkFromCoordinates(
+          location.latitude,
+          location.longitude,
+        );
+        if (placemarks.isNotEmpty) {
+          final place = placemarks.first;
+          _currentStationName =
+              _extractStationNameFromParts([
+                place.subAdministrativeArea,
+                place.locality,
+                place.subLocality,
+                place.administrativeArea,
+              ]) ??
+              _extractStationNameFromAddress(address) ??
+              defaultStationName;
+        }
+      } catch (_) {
+        _currentStationName =
+            _extractStationNameFromAddress(address) ?? defaultStationName;
+      }
+    } catch (_) {
+      _currentLocationLabel = address;
+      _currentStationName =
+          _extractStationNameFromAddress(address) ?? defaultStationName;
+    }
+
+    await _persistLocation();
   }
 
   Future<void> _runBusy(Future<void> Function() action) async {
@@ -739,61 +859,45 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
+  /// always 모드: 진료 기록 생성 직후 즉시 통합 건강 알림 전송
   Future<void> _autoShareDoctorNoteIfNeeded(int doctorNoteId) async {
-    if (!_canAutoShare('doctor_note')) {
-      return;
-    }
+    if (!isLoggedIn) return;
+    if (_currentUser?.guardianPhone.isEmpty != false) return;
+    if (_guardianShareFrequency != 'always') return;
     try {
-      await _api.notifyGuardian(doctorNoteId);
-      await _markAutoShared('doctor_note');
+      await _api.notifyHealthSummary();
     } catch (_) {}
   }
 
+  /// always 모드: 증상 분석 결과 생성 직후 즉시 통합 건강 알림 전송
   Future<void> _autoShareSymptomIfNeeded(int symptomId) async {
-    if (!_canAutoShare('symptom')) {
-      return;
-    }
+    if (!isLoggedIn) return;
+    if (_currentUser?.guardianPhone.isEmpty != false) return;
+    if (_guardianShareFrequency != 'always') return;
     try {
-      await _api.notifyGuardianForSymptom(symptomId);
-      await _markAutoShared('symptom');
+      await _api.notifyHealthSummary();
     } catch (_) {}
   }
 
+  /// daily 모드: 날짜가 바뀌었을 때 통합 건강 알림 전송 (앱 열릴 때 체크)
+  Future<void> _autoShareDailyIfNeeded() async {
+    if (!isLoggedIn) return;
+    if (_currentUser?.guardianPhone.isEmpty != false) return;
+    if (_guardianShareFrequency != 'daily') return;
+    if (!_isDailyAutoShareAvailable('health_summary')) return;
+    try {
+      await _api.notifyHealthSummary();
+      await _markAutoShared('health_summary');
+    } catch (_) {}
+  }
+
+  // dose auto-share 제거 (통합 알림으로 대체)
   Future<void> _autoShareDoseIfNeeded({
     required int scheduleId,
     required String doseLabel,
     required bool completed,
   }) async {
-    if (!_canAutoShare('dose')) {
-      return;
-    }
-    try {
-      await _api.notifyGuardianForDose(
-        scheduleId: scheduleId,
-        doseLabel: doseLabel,
-        completed: completed,
-      );
-      await _markAutoShared('dose');
-    } catch (_) {}
-  }
-
-  bool _canAutoShare(String channel) {
-    if (!isLoggedIn) {
-      return false;
-    }
-    if (_currentUser?.guardianPhone.isEmpty != false) {
-      return false;
-    }
-    if (_guardianShareFrequency == 'manual') {
-      return false;
-    }
-    if (_guardianShareFrequency == 'always') {
-      return true;
-    }
-    if (_guardianShareFrequency == 'daily') {
-      return _isDailyAutoShareAvailable(channel);
-    }
-    return false;
+    // 복용 건별 알림은 더 이상 자동 전송하지 않음
   }
 
   Future<void> _markAutoShared(String channel) async {
@@ -816,24 +920,12 @@ class AppProvider extends ChangeNotifier {
       return;
     }
 
-    if (_guardianShareFrequency == 'daily') {
-      final prefs = await SharedPreferences.getInstance();
-      final today = _todayDateLabel();
-      for (final channel in ['doctor_note', 'symptom', 'dose']) {
-        final saved = prefs.getString('$_guardianShareLastPrefix$channel');
-        if (saved != null && saved.isNotEmpty && saved != today) {
-          await prefs.remove('$_guardianShareLastPrefix$channel');
-          _guardianShareLastDates = {
-            ..._guardianShareLastDates,
-            channel: '',
-          };
-        }
-      }
-    }
-
     await _runBusy(() async {
       await _loadInitialData();
     });
+
+    // daily 모드: 날짜 바뀌면 자동 전송
+    await _autoShareDailyIfNeeded();
   }
 
   bool _isDailyAutoShareAvailable(String channel) {
@@ -846,5 +938,118 @@ class AppProvider extends ChangeNotifier {
     final month = now.month.toString().padLeft(2, '0');
     final day = now.day.toString().padLeft(2, '0');
     return '$year-$month-$day';
+  }
+
+  String? _extractStationNameFromParts(List<String?> parts) {
+    return _pickBestStationName(
+      parts.expand(_extractStationCandidates).toList(),
+    );
+  }
+
+  String? _extractStationNameFromAddress(String address) {
+    return _pickBestStationName(_extractStationCandidates(address));
+  }
+
+  String? _normalizeStationName(String? raw) {
+    if (raw == null) {
+      return null;
+    }
+    final value = raw.trim().replaceAll(RegExp(r'[(),]'), '');
+    if (value.isEmpty) {
+      return null;
+    }
+    if (_isBroadRegionName(value)) {
+      return null;
+    }
+    if (value.endsWith('구') || value.endsWith('군')) {
+      return value;
+    }
+    if (value.endsWith('읍') || value.endsWith('면') || value.endsWith('동')) {
+      return value;
+    }
+    if (value.endsWith('시')) {
+      return value;
+    }
+    return null;
+  }
+
+  String _resolveStationName(String? preferred) {
+    final resolved = _pickBestStationName([
+      ..._extractStationCandidates(preferred),
+      ..._extractStationCandidates(_currentStationName),
+      ..._extractStationCandidates(_currentLocationLabel),
+      ..._extractStationCandidates(_currentUser?.address),
+    ]);
+    return resolved ?? defaultStationName;
+  }
+
+  List<String> _extractStationCandidates(String? raw) {
+    if (raw == null) {
+      return const [];
+    }
+
+    final cleaned = raw
+        .replaceAll(RegExp(r'[(),]'), ' ')
+        .replaceAllMapped(RegExp(r'([가-힣]+)(특별시|광역시|특별자치시|특별자치도)'), (match) {
+          return '${match.group(1)}${match.group(2)} ';
+        });
+
+    final segments = cleaned
+        .split(RegExp(r'\s+'))
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty);
+
+    final normalized = <String>[];
+    for (final segment in segments) {
+      final value = _normalizeStationName(segment);
+      if (value != null) {
+        normalized.add(value);
+      }
+    }
+    final whole = _normalizeStationName(cleaned);
+    if (whole != null) {
+      normalized.add(whole);
+    }
+    return normalized.toSet().toList();
+  }
+
+  String? _pickBestStationName(List<String> candidates) {
+    if (candidates.isEmpty) {
+      return null;
+    }
+
+    final sorted = candidates.toSet().toList()
+      ..sort((a, b) {
+        final byPriority = _stationPriority(a).compareTo(_stationPriority(b));
+        if (byPriority != 0) {
+          return byPriority;
+        }
+        return a.length.compareTo(b.length);
+      });
+    return sorted.first;
+  }
+
+  int _stationPriority(String value) {
+    if (value.endsWith('구') || value.endsWith('군')) {
+      return 0;
+    }
+    if (value.endsWith('읍') || value.endsWith('면')) {
+      return 1;
+    }
+    if (value.endsWith('시')) {
+      return 2;
+    }
+    if (value.endsWith('동')) {
+      return 3;
+    }
+    return 9;
+  }
+
+  bool _isBroadRegionName(String value) {
+    return value.endsWith('특별시') ||
+        value.endsWith('광역시') ||
+        value.endsWith('특별자치시') ||
+        value.endsWith('특별자치도') ||
+        (value.endsWith('도') && !value.endsWith('동'));
   }
 }

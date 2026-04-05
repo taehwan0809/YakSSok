@@ -52,6 +52,7 @@ class MedicineSchedule {
   final String scheduleText;
   final String caution;
   final bool isActive;
+  final DateTime? endDate;
   final int? noteId;
   final DateTime? createdAt;
 
@@ -64,10 +65,20 @@ class MedicineSchedule {
     required this.isActive,
     required this.noteId,
     required this.createdAt,
+    this.endDate,
   });
 
   String get displaySchedule =>
       scheduleText.isNotEmpty ? scheduleText : schedule.join(', ');
+
+  int? get remainingDays {
+    if (endDate == null) return null;
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    final end = DateTime(endDate!.year, endDate!.month, endDate!.day);
+    final diff = end.difference(todayDate).inDays;
+    return diff < 0 ? 0 : diff;
+  }
 
   factory MedicineSchedule.fromJson(Map<String, dynamic> json) {
     return MedicineSchedule(
@@ -77,6 +88,7 @@ class MedicineSchedule {
       scheduleText: _asString(json['schedule_text']),
       caution: _asString(json['caution']),
       isActive: json['is_active'] == true || json['is_active'] == 1,
+      endDate: json['end_date'] != null ? DateTime.tryParse(json['end_date'].toString()) : null,
       noteId: json['note_id'] == null ? null : _asInt(json['note_id']),
       createdAt: _asDateTime(json['created_at']),
     );
@@ -183,12 +195,33 @@ class DoctorNoteSummary {
   }
 }
 
+class ProposedSchedule {
+  final String medicineName;
+  final String? scheduleText;
+  final String? caution;
+
+  const ProposedSchedule({
+    required this.medicineName,
+    this.scheduleText,
+    this.caution,
+  });
+
+  factory ProposedSchedule.fromJson(Map<String, dynamic> json) {
+    return ProposedSchedule(
+      medicineName: _asString(json['medicine_name']),
+      scheduleText: json['schedule_text']?.toString(),
+      caution: json['caution']?.toString(),
+    );
+  }
+}
+
 class DoctorNote {
   final int id;
   final DateTime? visitDate;
   final String originalText;
   final DoctorNoteSummary summaryData;
   final DateTime? createdAt;
+  final List<ProposedSchedule> proposedSchedules;
 
   const DoctorNote({
     required this.id,
@@ -196,6 +229,7 @@ class DoctorNote {
     required this.originalText,
     required this.summaryData,
     required this.createdAt,
+    this.proposedSchedules = const [],
   });
 
   String get summary => summaryData.summary.isNotEmpty
@@ -212,6 +246,9 @@ class DoctorNote {
         summaryJson is Map<String, dynamic> ? summaryJson : <String, dynamic>{},
       ),
       createdAt: _asDateTime(json['created_at']),
+      proposedSchedules: _asMapList(json['proposed_schedules'])
+          .map(ProposedSchedule.fromJson)
+          .toList(),
     );
   }
 }
@@ -295,6 +332,32 @@ class DiseaseSnapshot {
       topDiseases: _asMapList(json['top_diseases'])
           .map(DiseaseTrend.fromJson)
           .toList(),
+    );
+  }
+}
+
+class DiseasePreventionInfo {
+  final String name;
+  final String overview;
+  final List<String> symptoms;
+  final List<String> prevention;
+  final List<String> warningSigns;
+
+  const DiseasePreventionInfo({
+    required this.name,
+    required this.overview,
+    required this.symptoms,
+    required this.prevention,
+    required this.warningSigns,
+  });
+
+  factory DiseasePreventionInfo.fromJson(Map<String, dynamic> json) {
+    return DiseasePreventionInfo(
+      name: _asString(json['name']),
+      overview: _asString(json['overview']),
+      symptoms: _asStringList(json['symptoms']),
+      prevention: _asStringList(json['prevention']),
+      warningSigns: _asStringList(json['warning_signs']),
     );
   }
 }
@@ -484,6 +547,9 @@ class Pharmacy {
   final String distanceLabel;
   final int distanceMeters;
   final String kakaoUrl;
+  final bool isOpen;
+  final String? todayHours;     // 오늘 영업시간 (예: "09:00 ~ 19:00") 또는 "오늘 휴무"
+  final bool hoursFromApi;      // true=실제 API 데이터, false=추정값
 
   const Pharmacy({
     required this.rank,
@@ -495,6 +561,9 @@ class Pharmacy {
     required this.distanceLabel,
     required this.distanceMeters,
     required this.kakaoUrl,
+    required this.isOpen,
+    this.todayHours,
+    this.hoursFromApi = false,
   });
 
   factory Pharmacy.fromJson(Map<String, dynamic> json) {
@@ -508,6 +577,9 @@ class Pharmacy {
       distanceLabel: _asString(json['distance']),
       distanceMeters: _asInt(json['distance_m']),
       kakaoUrl: _asString(json['kakao_url']),
+      isOpen: json['is_open'] == true,
+      todayHours: json['today_hours']?.toString(),
+      hoursFromApi: json['hours_source'] == 'api',
     );
   }
 }

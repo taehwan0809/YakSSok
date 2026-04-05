@@ -41,9 +41,27 @@ class BackendApi {
     _token = '';
   }
 
+  Future<Map<String, dynamic>> loginWithKakaoSdk({
+    required String baseUrl,
+    required String kakaoAccessToken,
+  }) async {
+    final uri = _buildUri(baseUrl, '/auth/kakao/sdk-login');
+    final response = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': '1',
+      },
+      body: jsonEncode({'access_token': kakaoAccessToken}),
+    ).timeout(const Duration(seconds: 15));
+    final body = _decodeBody(response);
+    _ensureSuccess(response, body);
+    return body;
+  }
+
   Future<String> fetchKakaoAuthUrl(String baseUrl) async {
     final response = await http
-        .get(_buildUri(baseUrl, '/auth/kakao'))
+        .get(_buildUri(baseUrl, '/auth/kakao'), headers: {'ngrok-skip-browser-warning': '1'})
         .timeout(
           const Duration(seconds: 8),
           onTimeout: () => throw const ApiException('서버 응답 시간이 초과되었습니다. 백엔드가 실행 중인지 확인하세요.'),
@@ -163,6 +181,7 @@ class BackendApi {
     required String medicineName,
     required String scheduleText,
     String caution = '',
+    DateTime? endDate,
   }) async {
     final body = await _request(
       'POST',
@@ -171,6 +190,9 @@ class BackendApi {
         'medicine_name': medicineName,
         'schedule_text': scheduleText,
         'caution': caution,
+        if (endDate != null)
+          'end_date':
+              '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}',
       },
     );
     return MedicineSchedule.fromJson(_asMap(body['data']));
@@ -252,6 +274,7 @@ class BackendApi {
         's3_key': s3Key,
         if (visitDate != null && visitDate.isNotEmpty) 'visit_date': visitDate,
       },
+      timeout: const Duration(seconds: 120),
     );
     return DoctorNote.fromJson(_asMap(body['data']));
   }
@@ -292,6 +315,19 @@ class BackendApi {
     return _asList(body['data']).map(MedicineSearchRecord.fromJson).toList();
   }
 
+  Future<void> deleteDoctorNote(int id) async {
+    await _request('DELETE', '/doctor-note/$id');
+  }
+
+  Future<String> notifyHealthSummary() async {
+    final body = await _request('POST', '/notify/health-summary');
+    return body['message']?.toString() ?? '보호자에게 건강 알림을 발송했습니다.';
+  }
+
+  Future<void> confirmSchedulesFromNote(int noteId) async {
+    await _request('POST', '/schedule/from-note/$noteId');
+  }
+
   Future<DiseaseSnapshot> fetchDiseases({
     required String region,
     int limit = 5,
@@ -305,6 +341,16 @@ class BackendApi {
       },
     );
     return DiseaseSnapshot.fromJson(_asMap(body['data']));
+  }
+
+  Future<DiseasePreventionInfo> fetchDiseasePreventionInfo(String name) async {
+    final body = await _request(
+      'GET',
+      '/disease/prevention',
+      query: {'name': name},
+      timeout: const Duration(seconds: 30),
+    );
+    return DiseasePreventionInfo.fromJson(_asMap(body['data']));
   }
 
   Future<WeatherSnapshot> fetchWeather({
@@ -349,6 +395,7 @@ class BackendApi {
     String path, {
     Map<String, String>? query,
     Map<String, dynamic>? payload,
+    Duration timeout = const Duration(seconds: 15),
   }) async {
     if (!isConfigured) {
       throw const ApiException('백엔드 주소와 토큰이 필요합니다.');
@@ -358,9 +405,8 @@ class BackendApi {
     final headers = {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $_token',
+      'ngrok-skip-browser-warning': '1',
     };
-
-    const timeout = Duration(seconds: 15);
     late final http.Response response;
     switch (method) {
       case 'GET':
@@ -368,12 +414,12 @@ class BackendApi {
         break;
       case 'POST':
         response = await http
-            .post(uri, headers: headers, body: jsonEncode(payload))
+            .post(uri, headers: headers, body: jsonEncode(payload ?? {}))
             .timeout(timeout);
         break;
       case 'PUT':
         response = await http
-            .put(uri, headers: headers, body: jsonEncode(payload))
+            .put(uri, headers: headers, body: jsonEncode(payload ?? {}))
             .timeout(timeout);
         break;
       case 'DELETE':

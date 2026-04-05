@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -85,6 +86,16 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    // 카카오에서 받은 닉네임/이메일로 폼 미리 채우기
+    final nickname = uri.queryParameters['nickname'];
+    final email = uri.queryParameters['email'];
+    if (nickname != null && nickname.isNotEmpty && _nameController.text.isEmpty) {
+      _nameController.text = nickname;
+    }
+    if (email != null && email.isNotEmpty && _guardianEmailController.text.isEmpty) {
+      // 이메일은 보호자 이메일이 아니라 참고용이므로 주소 힌트로만 활용
+    }
+
     _tokenController.text = token;
     await _connect();
   }
@@ -93,32 +104,42 @@ class _LoginScreenState extends State<LoginScreen> {
     final app = context.read<AppProvider>();
 
     try {
-      final authUrl = await app.fetchKakaoAuthUrl(_baseUrlController.text);
-      if (authUrl.isEmpty) {
-        throw const ApiException('카카오 로그인 URL을 불러오지 못했습니다.');
+      OAuthToken kakaoToken;
+
+      // 카카오톡 앱이 설치되어 있으면 앱으로, 없으면 웹으로
+      if (await isKakaoTalkInstalled()) {
+        kakaoToken = await UserApi.instance.loginWithKakaoTalk();
+      } else {
+        kakaoToken = await UserApi.instance.loginWithKakaoAccount();
       }
 
-      final launched = await launchUrl(
-        Uri.parse(authUrl),
-        mode: LaunchMode.inAppBrowserView,
+      // 카카오 액세스 토큰을 백엔드로 전달해 JWT 발급
+      final result = await app.loginWithKakaoSdk(
+        baseUrl: _baseUrlController.text,
+        kakaoAccessToken: kakaoToken.accessToken,
       );
 
-      if (!launched && mounted) {
-        _showMessage('브라우저를 열 수 없습니다.');
-        return;
+      if (!mounted) return;
+
+      // 닉네임으로 이름 필드 미리 채우기
+      final nickname = result['nickname'] as String?;
+      if (nickname != null && nickname.isNotEmpty && _nameController.text.isEmpty) {
+        _nameController.text = nickname;
       }
 
-      if (mounted) {
-        _showMessage('카카오 로그인 후 앱으로 자동 복귀합니다.');
-      }
+      final token = result['token'] as String?;
+      final tempToken = result['temp_token'] as String?;
+      _tokenController.text = token ?? tempToken ?? '';
+
+      await _connect();
+    } on KakaoAuthException catch (e) {
+      if (mounted) _showMessage('카카오 로그인 실패: ${e.message}');
+    } on KakaoClientException catch (e) {
+      if (mounted) _showMessage('카카오 SDK 오류: ${e.message}');
     } on ApiException catch (error) {
-      if (mounted) {
-        _showMessage(error.message);
-      }
-    } catch (_) {
-      if (mounted) {
-        _showMessage('백엔드 서버에 연결할 수 없습니다.');
-      }
+      if (mounted) _showMessage(error.message);
+    } catch (e) {
+      if (mounted) _showMessage('로그인 중 오류가 발생했습니다.');
     }
   }
 
@@ -244,27 +265,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 28),
-              SizedBox(
-                height: 56,
-                child: ElevatedButton.icon(
-                  onPressed: app.isBusy ? null : _openKakaoAuth,
-                  icon: const Icon(Icons.login),
-                  label: const Text('카카오로 계속하기'),
-                  style: ElevatedButton.styleFrom(
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+              GestureDetector(
+                onTap: app.isBusy ? null : _openKakaoAuth,
+                child: Opacity(
+                  opacity: app.isBusy ? 0.5 : 1.0,
+                  child: Image.asset(
+                    'public/kakao_login_medium_wide.png',
+                    fit: BoxFit.fitWidth,
                   ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                '에뮬레이터에서는 카카오톡 앱 대신 웹 로그인으로 진행됩니다.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
                 ),
               ),
               if (kDebugMode) ...[
@@ -276,20 +284,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     });
                   },
                   child: Text(
-                    _showManualFallback ? '개발용 수동 복구 닫기' : '개발용 수동 토큰 연결',
+                    _showManualFallback ? '수동 토큰 연결 닫기' : '수동 토큰으로 연결',
                   ),
                 ),
                 if (_showManualFallback) ...[
                   const SizedBox(height: 8),
-                  TextField(
-                    controller: _baseUrlController,
-                    keyboardType: TextInputType.url,
-                    decoration: const InputDecoration(
-                      labelText: '백엔드 주소',
-                      prefixIcon: Icon(Icons.link),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
                   TextField(
                     controller: _tokenController,
                     maxLines: 3,

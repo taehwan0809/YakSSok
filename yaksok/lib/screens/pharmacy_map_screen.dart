@@ -19,6 +19,10 @@ class PharmacyMapScreen extends StatefulWidget {
 class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
   int _selectedIndex = -1;
   final MapController _mapController = MapController();
+  final ScrollController _listScrollController = ScrollController();
+
+  // 리스트 아이템 기본 높이 추정값 (패딩 포함)
+  static const double _itemCollapsedHeight = 90.0;
 
   @override
   void initState() {
@@ -29,6 +33,29 @@ class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
   }
 
   @override
+  void dispose() {
+    _listScrollController.dispose();
+    super.dispose();
+  }
+
+  void _selectPharmacy(int index, double lat, double lng) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    _mapController.move(LatLng(lat, lng), 16);
+
+    // 리스트를 선택된 항목으로 스크롤
+    final offset = index * _itemCollapsedHeight;
+    if (_listScrollController.hasClients) {
+      _listScrollController.animateTo(
+        offset,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     final pharmacies = app.pharmacies;
@@ -36,6 +63,7 @@ class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
         ? LatLng(pharmacies.first.latitude, pharmacies.first.longitude)
         : LatLng(AppProvider.defaultLat, AppProvider.defaultLng);
     final locationLabel = app.currentLocationLabel;
+    final isProfileAddressBased = app.currentUser?.address.isNotEmpty == true;
 
     if (!app.isLoggedIn) {
       return Scaffold(
@@ -105,9 +133,9 @@ class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          '현재 조회 기준',
-                          style: TextStyle(
+                        Text(
+                          isProfileAddressBased ? '프로필 주소 기준' : '현재 조회 기준',
+                          style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.textSecondary,
                           ),
@@ -123,6 +151,18 @@ class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
                         ),
                       ],
                     ),
+                  ),
+                  // 영업 현황 범례
+                  Row(
+                    children: [
+                      _LegendDot(color: Colors.green.shade600),
+                      const SizedBox(width: 4),
+                      const Text('영업 중', style: TextStyle(fontSize: 11)),
+                      const SizedBox(width: 8),
+                      _LegendDot(color: Colors.red.shade600),
+                      const SizedBox(width: 4),
+                      const Text('영업 종료', style: TextStyle(fontSize: 11)),
+                    ],
                   ),
                 ],
               ),
@@ -152,42 +192,45 @@ class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
                         final index = entry.key;
                         final pharmacy = entry.value;
                         final isSelected = _selectedIndex == index;
+                        final markerColor = isSelected
+                            ? AppColors.primaryBlue
+                            : (pharmacy.isOpen
+                                ? Colors.green.shade600
+                                : Colors.red.shade600);
                         return Marker(
                           point: LatLng(
                             pharmacy.latitude,
                             pharmacy.longitude,
                           ),
-                          width: 56,
-                          height: 56,
+                          width: 36,
+                          height: 36,
                           child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _selectedIndex = index;
-                              });
-                              _mapController.move(
-                                LatLng(pharmacy.latitude, pharmacy.longitude),
-                                16,
-                              );
-                            },
+                            onTap: () => _selectPharmacy(
+                              index,
+                              pharmacy.latitude,
+                              pharmacy.longitude,
+                            ),
                             child: Container(
-                              width: 38,
-                              height: 38,
+                              width: 28,
+                              height: 28,
                               decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppColors.primaryBlue
-                                    : Colors.red,
-                                borderRadius: BorderRadius.circular(20),
+                                color: markerColor,
+                                shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.16),
-                                    blurRadius: 10,
+                                    color: Colors.black.withValues(alpha: 0.25),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
                                   ),
                                 ],
+                                border: isSelected
+                                    ? Border.all(color: Colors.white, width: 2)
+                                    : null,
                               ),
                               child: const Icon(
                                 Icons.local_pharmacy,
                                 color: Colors.white,
-                                size: 20,
+                                size: 14,
                               ),
                             ),
                           ),
@@ -204,6 +247,7 @@ class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
             child: pharmacies.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : ListView.builder(
+                    controller: _listScrollController,
                     padding: const EdgeInsets.all(16),
                     itemCount: pharmacies.length,
                     itemBuilder: (context, index) {
@@ -211,13 +255,11 @@ class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
                       final isSelected = _selectedIndex == index;
 
                       return GestureDetector(
-                        onTap: () {
-                          setState(() => _selectedIndex = index);
-                          _mapController.move(
-                            LatLng(pharmacy.latitude, pharmacy.longitude),
-                            16,
-                          );
-                        },
+                        onTap: () => _selectPharmacy(
+                          index,
+                          pharmacy.latitude,
+                          pharmacy.longitude,
+                        ),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           margin: const EdgeInsets.only(bottom: 10),
@@ -277,13 +319,43 @@ class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
                                         ],
                                       ),
                                     ),
-                                    Text(
-                                      pharmacy.distanceLabel,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.primaryBlue,
-                                      ),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          pharmacy.distanceLabel,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primaryBlue,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: pharmacy.isOpen
+                                                ? Colors.green.shade50
+                                                : Colors.red.shade50,
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                          ),
+                                          child: Text(
+                                            pharmacy.isOpen ? '영업 중' : '영업 종료',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: pharmacy.isOpen
+                                                  ? Colors.green.shade700
+                                                  : Colors.red.shade700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -306,6 +378,25 @@ class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
                                           color: AppColors.primaryBlue,
                                         ),
                                       ),
+                                      const Spacer(),
+                                      if (pharmacy.todayHours != null)
+                                        Text(
+                                          '오늘 ${pharmacy.todayHours}',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        )
+                                      else
+                                        Text(
+                                          '* 영업 시간은 추정값입니다',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: AppColors.textSecondary
+                                                .withValues(alpha: 0.7),
+                                          ),
+                                        ),
                                     ],
                                   ),
                                   const SizedBox(height: 12),
@@ -354,5 +445,19 @@ class _PharmacyMapScreenState extends State<PharmacyMapScreen> {
   Future<void> _launch(String value) async {
     final uri = Uri.parse(value);
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  final Color color;
+  const _LegendDot({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
   }
 }

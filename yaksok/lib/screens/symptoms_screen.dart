@@ -403,38 +403,6 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    if (app.currentUser?.guardianPhone.isNotEmpty == true) ...[
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: app.isBusy
-                              ? null
-                              : () async {
-                                  try {
-                                    final message = await context
-                                        .read<AppProvider>()
-                                        .notifyGuardianForSymptom(result.id);
-                                    if (!context.mounted) {
-                                      return;
-                                    }
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(message)),
-                                    );
-                                  } catch (error) {
-                                    if (!context.mounted) {
-                                      return;
-                                    }
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(error.toString())),
-                                    );
-                                  }
-                                },
-                          icon: const Icon(Icons.sms_outlined),
-                          label: const Text('보호자에게 이 분석 결과 공유'),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),

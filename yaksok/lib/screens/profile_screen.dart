@@ -233,29 +233,33 @@ class ProfileScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '분석 결과와 복용 상태를 보호자에게 보내는 방식',
+                    '보호자에게 건강 알림을 보내는 방식',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  Builder(builder: (context) {
+                    final freq = context.watch<AppProvider>().guardianShareFrequency;
+                    final desc = freq == 'manual'
+                        ? '홈 화면의 버튼을 눌러야만 보호자에게 전송됩니다.'
+                        : freq == 'daily'
+                            ? '앱을 열 때 날짜가 바뀌었으면 자동으로 건강 알림을 보냅니다.'
+                            : '진료 기록 또는 증상 분석 완료 시 즉시 자동 전송됩니다.';
+                    return Text(
+                      desc,
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
+                    );
+                  }),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: const [
-                      _ShareFrequencyChip(
-                        value: 'manual',
-                        label: '수동 전송',
-                      ),
-                      _ShareFrequencyChip(
-                        value: 'daily',
-                        label: '하루 1번',
-                      ),
-                      _ShareFrequencyChip(
-                        value: 'always',
-                        label: '결과 나올 때마다',
-                      ),
+                      _ShareFrequencyChip(value: 'manual', label: '수동 전송'),
+                      _ShareFrequencyChip(value: 'daily', label: '하루 1번 자동'),
+                      _ShareFrequencyChip(value: 'always', label: '결과 나올 때마다'),
                     ],
                   ),
                 ],

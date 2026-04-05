@@ -33,14 +33,25 @@ dependencies:
   record: ^6.1.1
   geolocator: ^14.0.2
   geocoding: ^4.0.0
+  timezone: ^0.9.4
+  kakao_flutter_sdk_user: ^1.9.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  adaptive_icon_background: "#A8C8CC"
+  adaptive_icon_foreground: "assets/images/app_icon.png"
 
 flutter:
   uses-material-design: true
   assets:
     - assets/images/
     - assets/icons/
+    - public/

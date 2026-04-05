@@ -113,6 +113,17 @@ class MedicineScheduleScreen extends StatelessWidget {
     final nameController = TextEditingController();
     final scheduleController = TextEditingController();
     final cautionController = TextEditingController();
+    int? selectedDays = 7; // 기본값: 7일
+
+    const durationOptions = [
+      (null, '무기한'),
+      (3, '3일'),
+      (5, '5일'),
+      (7, '1주 (7일)'),
+      (14, '2주 (14일)'),
+      (21, '3주 (21일)'),
+      (30, '1달 (30일)'),
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -120,80 +131,125 @@ class MedicineScheduleScreen extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-          left: 24,
-          right: 24,
-          top: 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.divider,
-                  borderRadius: BorderRadius.circular(2),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+            left: 24,
+            right: 24,
+            top: 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.divider,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              '복용 일정 추가',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: '약 이름',
-                hintText: '예: 타이레놀',
+              const SizedBox(height: 20),
+              const Text(
+                '복용 일정 추가',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: scheduleController,
-              decoration: const InputDecoration(
-                labelText: '복용 시간 또는 규칙',
-                hintText: '예: 아침, 저녁 또는 하루 2회 식후 30분',
+              const SizedBox(height: 20),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: '약 이름',
+                  hintText: '예: 타이레놀',
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: cautionController,
-              decoration: const InputDecoration(
-                labelText: '주의사항',
-                hintText: '예: 공복 복용 금지',
+              const SizedBox(height: 12),
+              TextField(
+                controller: scheduleController,
+                decoration: const InputDecoration(
+                  labelText: '복용 시간',
+                  hintText: '예: 아침, 저녁  /  하루 3회  /  취침 전',
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: () async {
-                  if (nameController.text.trim().isEmpty ||
-                      scheduleController.text.trim().isEmpty) {
-                    return;
-                  }
-                  await context.read<AppProvider>().addSchedule(
-                        medicineName: nameController.text.trim(),
-                        scheduleText: scheduleController.text.trim(),
-                        caution: cautionController.text.trim(),
-                      );
-                  if (ctx.mounted) {
-                    Navigator.pop(ctx);
-                  }
-                },
-                child: const Text('저장'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: cautionController,
+                decoration: const InputDecoration(
+                  labelText: '주의사항 (선택)',
+                  hintText: '예: 공복 복용 금지',
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-          ],
+              const SizedBox(height: 16),
+              const Text(
+                '복용 기간',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: durationOptions.map((opt) {
+                  final days = opt.$1;
+                  final label = opt.$2;
+                  final isSelected = selectedDays == days;
+                  return GestureDetector(
+                    onTap: () => setModalState(() => selectedDays = days),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.primaryBlue : AppColors.blueSurface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected ? AppColors.primaryBlue : AppColors.divider,
+                        ),
+                      ),
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected ? Colors.white : AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    if (nameController.text.trim().isEmpty ||
+                        scheduleController.text.trim().isEmpty) {
+                      return;
+                    }
+                    DateTime? endDate;
+                    if (selectedDays != null) {
+                      final today = DateTime.now();
+                      endDate = DateTime(today.year, today.month, today.day)
+                          .add(Duration(days: selectedDays! - 1));
+                    }
+                    await context.read<AppProvider>().addSchedule(
+                          medicineName: nameController.text.trim(),
+                          scheduleText: scheduleController.text.trim(),
+                          caution: cautionController.text.trim(),
+                          endDate: endDate,
+                        );
+                    if (context.mounted) {
+                      Navigator.pop(ctx);
+                    }
+                  },
+                  child: const Text('저장'),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );
@@ -271,54 +327,25 @@ class _ScheduleCard extends StatelessWidget {
                         color: AppColors.textSecondary,
                       ),
                     ),
+                    if (schedule.remainingDays != null)
+                      Text(
+                        schedule.remainingDays == 0
+                            ? '오늘 마지막 복용일'
+                            : '${schedule.remainingDays}일 남음',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: (schedule.remainingDays ?? 99) <= 2
+                              ? Colors.red
+                              : AppColors.primaryBlue,
+                        ),
+                      ),
                   ],
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text(
-                    '일정 사용',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  Switch(
-                    value: schedule.isActive,
-                    activeColor: AppColors.accentGreen,
-                    onChanged: (_) => context
-                        .read<AppProvider>()
-                        .toggleScheduleActive(schedule),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          if (schedule.schedule.isNotEmpty || schedule.caution.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            const Divider(height: 1),
-            const SizedBox(height: 10),
-            if (schedule.schedule.isNotEmpty) ...[
-              SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
+              Switch.adaptive(
                 value: allDone,
-                title: const Text(
-                  '오늘 복용 완료',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                subtitle: Text(
-                  allDone
-                      ? '오늘 일정의 모든 복용 시간을 체크했습니다.'
-                      : '아래 시간대를 모두 완료하면 자동으로 켜집니다.',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
+                activeColor: AppColors.accentGreen,
                 onChanged: (value) async {
                   for (final doseKey in doseKeys) {
                     final currentValue = doseStatus[doseKey] == true;
@@ -335,6 +362,46 @@ class _ScheduleCard extends StatelessWidget {
                     }
                   }
                 },
+              ),
+            ],
+          ),
+          if (schedule.schedule.isNotEmpty || schedule.caution.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            const Divider(height: 1),
+            const SizedBox(height: 10),
+            if (schedule.schedule.isNotEmpty) ...[
+              Row(
+                children: [
+                  const Icon(
+                    Icons.task_alt_outlined,
+                    size: 18,
+                    color: AppColors.accentGreen,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '오늘 복용 완료',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          allDone
+                              ? '오늘 일정의 모든 복용 시간을 체크했습니다.'
+                              : '아래 시간대를 모두 완료하면 위 토글이 자동으로 켜집니다.',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 6),
               ...schedule.schedule.map((time) {
